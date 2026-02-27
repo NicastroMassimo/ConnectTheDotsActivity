@@ -1,0 +1,15 @@
+#main-toolbar #activity-button {
+  background-image: url(../activity/activity-icon.svg);
+}
+
+body {
+	height: 100vh;
+}
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #f0f0f0;
+}
+canvas {
+    display: block;
+}

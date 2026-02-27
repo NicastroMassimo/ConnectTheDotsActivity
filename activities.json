@@ -59,5 +59,8 @@
 	{"id": "org.sugarlabs.Implode", "name": "Implode", "version": 1, "directory": "activities/Implode.activity", "icon": "activity/activity-icon.svg", "favorite": true, "activityId": null},
 	{"id": "org.sugarlabs.Measure", "name": "Measure", "version": 1, "directory": "activities/Measure.activity", "icon": "activity/activity-icon.svg", "favorite": true, "activityId": null},
 	{"id": "org.sugarlabs.ChartActivity", "name": "Chart", "version": 1, "directory": "activities/Chart.activity", "icon": "activity/activity-icon.svg", "favorite": true, "activityId": null},
-	{"id": "org.sugarlabs.Stickman", "name": "Stickman", "version": 1, "directory": "activities/Stickman.activity", "icon": "activity/activity-icon.svg", "favorite": true, "activityId": null}
+	{"id": "org.sugarlabs.Stickman", "name": "Stickman", "version": 1, "directory": "activities/Stickman.activity", "icon": "activity/activity-icon.svg", "favorite": true, "activityId": null},
+	{"id": "org.sugarlabs.Pawn", "name": "Pawn", "version": 1, "directory": "activities/Pawn.activity", "icon": "activity/activity-icon.svg", "favorite": true, "activityId": null},
+	{"id": "org.sugarlabs.ConnectTheDots", "name": "ConnectTheDots", "version": 1, "directory": "activities/ConnectTheDots.activity", "icon": "activity/activity-icon.svg", "favorite": true, "activityId": null},
+	{"id": "org.sugarlabs.PaperIO", "name": "PaperIO", "version": 1, "directory": "activities/PaperIO.activity", "icon": "activity/activity-icon.svg", "favorite": true, "activityId": null}
 ]

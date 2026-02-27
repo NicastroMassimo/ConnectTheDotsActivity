@@ -1,0 +1,13 @@
+{
+	"Hello": "Bonjour {{name}} !",
+	"Played": "{{name}} a joué",
+	"AddPawn": "Ajouter pion",
+	"TutoPrev":"Précédent",
+	"TutoNext":"Suivant",
+	"TutoExplainTitle":"Activité Pion",
+	"TutoExplainContent":"Bienvenue dans l'activité Pion. Cette activité est une activité pour tester le développement Sugarizer.",
+	"TutoAddTitle":"Ajouter un pion",
+	"TutoAddContent":"Cliquez ici pour ajouter un à trois pions sur le plateau.",
+	"TutoBackgroundTitle":"Changer le fond",
+	"TutoBackgroundContent":"Cliquez ici pour choisir un nouveau fond pour le plateau."
+}
