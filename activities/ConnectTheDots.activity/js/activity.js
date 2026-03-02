@@ -36,7 +36,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             }
         }
 
-       const canvas = document.getElementById('drawCanvas');
+        const canvas = document.getElementById('drawCanvas');
         const ctx = canvas.getContext('2d');
 
         const snapRadius = 15; // Snap distance
