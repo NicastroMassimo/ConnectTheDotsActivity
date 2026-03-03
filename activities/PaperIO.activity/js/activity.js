@@ -23,7 +23,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             // Force the new colors
             entities[0].colors = { fill: usercolor, stroke: currcolor, trail: trailcolor }
             // Set the starting base color
-            globalCompletedAreas[0].color = currentenv.user.colorvalue.stroke
+            // globalCompletedAreas[0].color = currentenv.user.colorvalue.stroke
 
             // Set current language to Sugarizer
             var defaultLanguage = (typeof chrome != 'undefined' && chrome.app && chrome.app.runtime)
@@ -96,12 +96,12 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
         // --- GAME STATE & ENTITIES ---
         let gameLoop;
         let entities = [];
-        let globalHiddenPoints = new Set(); // Points hidden by filled areas
+        //let globalHiddenPoints = new Set(); // Points hidden by filled areas
 
         // NEW: Global rendering queues for chronological drawing
         let globalCompletedAreas = [];
         let globalCompletedLines = [];
-        let globalTrailLines = [];
+        // let globalTrailLines = [];
 
         // --- MATH HELPERS (Keep your existing helpers, modified slightly to handle entity scope) ---
         function hexToRgbArray(hex) {
@@ -181,27 +181,20 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             }
 
             if (cyclePath) {
-                entity.completedAreas.push({
-                    path: cyclePath,
-                    color: entity.colors.stroke,
-                    size: calculatePolygonArea(cyclePath)
-                });
+                for (let c = 0; c < cols - 1; c++) {
+                    for (let r = 0; r < rows - 1; r++) {
+                        // Find the physical center point of the square
+                        let cellCenterX = startX + (c + 0.5) * spacingX;
+                        let cellCenterY = startY + (r + 0.5) * spacingY;
 
-                // Add the area globally
-                globalCompletedAreas.push({
-                    path: cyclePath,
-                    color: entity.colors.stroke,
-                    size: calculatePolygonArea(cyclePath),
-                    ownerId: entity.id
-                })
-
-                for (let pt of points) {
-                    if (isPointInOrOnPolygon(pt, cyclePath)) {
-                        let ptKey = `${pt.x},${pt.y}`;
-                        entity.drawnPoints.set(ptKey, entity.colors.stroke);
-                        globalHiddenPoints.add(ptKey);
+                        // If the center is inside the captured polygon, overwrite the owner!
+                        if (isPointInOrOnPolygon({ x: cellCenterX, y: cellCenterY }, cyclePath)) {
+                            cellOwnership[c][r] = entity.id;
+                        }
                     }
                 }
+
+                updatePointSafety(); // Recalculate all safe vertices
 
                 // DEATH MECHANIC 3: ENGULFMENT
                 // Check if any other entity's current head position is inside this new area
@@ -236,13 +229,19 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             });
 
             //Remove their areas from the global Areas Array
-            globalCompletedAreas = globalCompletedAreas.filter(area => area.ownerId != entity.id)
-
+            for (let c = 0; c < cols - 1; c++) {
+                for (let r = 0; r < rows - 1; r++) {
+                    let ownerId = cellOwnership[c][r];
+                    if (entity.id == ownerId)
+                        cellOwnership[c][r] = null
+                }
+            }
             //Remove their areas from the global Lines Array
             globalCompletedLines = globalCompletedLines.filter(line => line.ownerId != entity.id)
 
             //Remove their trails from the global Trail Array
             globalTrailLines = globalTrailLines.filter(trail => trail.ownerId != entity.id)
+
 
             // Wipe their arrays so they don't render anymore
             entity.completedLines = [];
@@ -266,9 +265,75 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             [p1, p2, p3, p4].forEach(p => entity.drawnPoints.set(`${p.x},${p.y}`, entity.colors.stroke));
         }
 
-        // --- GAME LOGIC ---
-        function initGame() {
+        function updatePointSafety() {
+            // Clear all safety mappings
+            entities.forEach(ent => ent.drawnPoints.clear());
             globalHiddenPoints.clear();
+
+            for (let c = 0; c < cols - 1; c++) {
+                for (let r = 0; r < rows - 1; r++) {
+                    let ownerId = cellOwnership[c][r];
+                    if (ownerId) {
+                        let ent = entities.find(e => e.id === ownerId);
+                        if (ent) {
+                            // Mark all 4 fence posts (vertices) of this yard as safe
+                            // USE GET POINT
+                            let corners = [
+                                [c,r], [c+1,r],
+                                [c,r+1], [c+1,r+1]
+                            ];
+                            corners.forEach(ptKey => {
+                                var p = getPoint(ptKey[0],ptKey[1])
+                                ent.drawnPoints.set(`${p.x},${p.y}`, ent.colors.stroke);
+                                globalHiddenPoints.add(`${p.x},${p.y}`); // Hide the dot visually
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        function getDynamicBorders() {
+            let borders = [];
+
+            for (let c = 0; c < cols - 1; c++) {
+                for (let r = 0; r < rows - 1; r++) {
+                    let owner = cellOwnership[c][r];
+                    if (owner) {
+                        let ent = entities.find(e => e.id === owner);
+                        let color = ent ? ent.colors.stroke : '#000';
+
+                        let pTL = getPoint(c, r);
+                        let pTR = getPoint(c + 1, r);
+                        let pBL = getPoint(c, r + 1);
+                        let pBR = getPoint(c + 1, r + 1);
+
+                        // Top edge: check if we are at the top wall, or if the cell above has a different owner
+                        if (r === 0 || cellOwnership[c][r - 1] !== owner) borders.push({start: pTL, end: pTR, color: color, owner: owner});
+                        // Bottom edge
+                        if (r === rows - 2 || cellOwnership[c][r + 1] !== owner) borders.push({start: pBL, end: pBR, color: color, owner: owner});
+                        // Left edge
+                        if (c === 0 || cellOwnership[c - 1][r] !== owner) borders.push({start: pTL, end: pBL, color: color, owner: owner});
+                        // Right edge
+                        if (c === cols - 2 || cellOwnership[c + 1][r] !== owner) borders.push({start: pTR, end: pBR, color: color, owner: owner});
+                    }
+                }
+            }
+            return borders;
+        }
+
+
+        // --- GAME LOGIC ---
+        // A matrix of the squares between the dots
+        let cellOwnership = [];
+        let globalTrailLines = [];
+        let globalHiddenPoints = new Set();
+
+        function initGame() {
+            // There are (cols-1) x (rows-1) squares between the points
+            cellOwnership = Array.from({length: cols - 1}, () => new Array(rows - 1).fill(null));
+            globalHiddenPoints.clear();
+            globalTrailLines = [];
 
             // Create Player and Enemy objects
             entities = [
@@ -489,17 +554,21 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                     // Leaving Base
                     ent.trailLines.push(newTrail);
                     globalTrailLines.push(newTrail);
+                    console.log("LEAVING")
                 }
                 else if (isCurrentSafe && isNextSafe) {
                     // Jumping across base
                     checkForEnclosedArea(ent, ent.currentPt, ent.nextPt);
+                    console.log("JUMPING")
                 }
                 else if (!isCurrentSafe && !isNextSafe) {
                     // In the Wild
                     ent.trailLines.push(newTrail);
                     globalTrailLines.push(newTrail);
+                    console.log("WILD")
                 }
                 else if (!isCurrentSafe && isNextSafe) {
+                    console.log("RETURNING")
                     // Reconnecting to Base
                     for (let tl of ent.trailLines) {
                         let compLine = { ownerId: ent.id, start: tl.start, end: tl.end, color: ent.colors.stroke };
@@ -529,9 +598,9 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
 
         // --- RENDERING ---
         function drawScene() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 0. Draw Grid Dots (Background)
+            // 0. Draw Grid Dots
             ctx.fillStyle = '#444';
             for (let pt of points) {
                 if (!globalHiddenPoints.has(`${pt.x},${pt.y}`)) {
@@ -541,29 +610,34 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                 }
             }
 
-            // 1. Draw ALL Filled Areas chronologically
-            for (let area of globalCompletedAreas) {
-                ctx.beginPath();
-                ctx.moveTo(area.path[0].x, area.path[0].y);
-                for (let i = 1; i < area.path.length; i++) {
-                    ctx.lineTo(area.path[i].x, area.path[i].y);
+            // 1. Draw ALL Areas (The "Yards")
+            for (let c = 0; c < cols - 1; c++) {
+                for (let r = 0; r < rows - 1; r++) {
+                    let ownerId = cellOwnership[c][r];
+                    if (ownerId) {
+                        let ent = entities.find(e => e.id === ownerId);
+                        if (ent) {
+                            let pTL = getPoint(c, r);
+                            ctx.fillStyle = ent.colors.stroke; // Or a slightly transparent version
+                            // Fill the space between the vertices
+                            ctx.fillRect(pTL.x, pTL.y, spacingX, spacingY);
+                        }
+                    }
                 }
-                ctx.closePath();
-                ctx.fillStyle = area.color;
-                ctx.fill();
             }
 
-            // 2. Draw ALL Permanent Territory Lines chronologically
+            // 2. Draw ALL Dynamic Territory Borders
+            let dynamicBorders = getDynamicBorders();
             ctx.lineWidth = 4;
-            for (let line of globalCompletedLines) {
-                ctx.strokeStyle = line.color;
+            for (let line of dynamicBorders) {
+                ctx.strokeStyle = 'pink'//line.color;
                 ctx.beginPath();
                 ctx.moveTo(line.start.x, line.start.y);
                 ctx.lineTo(line.end.x, line.end.y);
                 ctx.stroke();
             }
 
-            // 3. Draw ALL Active Trails chronologically
+            // 3. Draw Active Trails
             ctx.lineWidth = 4;
             for (let trail of globalTrailLines) {
                 ctx.strokeStyle = trail.color;
