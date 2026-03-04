@@ -142,66 +142,123 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             return inside;
         }
 
-        function checkForEnclosedArea(entity, startPt, endPt) {
-            let adj = {};
-            for (let pt of points) adj[`${pt.x},${pt.y}`] = [];
+        function checkForEnclosedArea(entity) {
+            if (entity.trailLines.length == 0) return; // Need at least a trail
+            console.log("Enclosed")
+            // Remove the last step so that I force the path to follow the long route
+            var lastConnection = entity.trailLines.pop()
 
-            for (let line of entity.completedLines) {
-                let sKey = `${line.start.x},${line.start.y}`;
-                let eKey = `${line.end.x},${line.end.y}`;
-                adj[sKey].push(line.end);
-                adj[eKey].push(line.start);
+
+
+            var startNode = lastConnection.start; // Where the trail left the base
+            var endNode = lastConnection.end; // Where it just connected
+
+
+            // 1. Build the Adjacency Graph for this specific entity
+            let graph = new Map();
+
+            function addEdge(ptA, ptB) {
+
+
+                let keyA = `${ptA.x},${ptA.y}`;
+                let keyB = `${ptB.x},${ptB.y}`;
+
+                if (!graph.has(keyA)) graph.set(keyA, new Set());
+                if (!graph.has(keyB)) graph.set(keyB, new Set());
+
+                graph.get(keyA).add(keyB);
+                graph.get(keyB).add(keyA);
             }
 
-            let endKey = `${endPt.x},${endPt.y}`;
-            let queue = [ [startPt] ];
-            let visited = new Set();
-            visited.add(`${startPt.x},${startPt.y}`);
+            // A. Add the entity's dynamic borders to the graph
+            let allBorders = getDynamicBorders();
+            let myBorders = allBorders.filter(b => b.owner === entity.id);
+            // console.log('myBorders: ',myBorders," ","trailLines: ",entity.trailLines)
 
-            let cyclePath = null;
+            myBorders.forEach(line => addEdge(line.start, line.end));
+
+            // B.2 Add the entity's active trail to the graph
+            entity.trailLines.forEach(line => addEdge(line.start, line.end));
+
+            // 2. Find the Cycle using Breadth-First Search (BFS)
+            // We want to find the shortest path along the borders from the end node back to the start node
+            // to close the loop formed by the trail.
+
+            var startKey = `${startNode.x},${startNode.y}`;
+            var endKey = `${endNode.x},${endNode.y}`;
+
+            let queue = [[endKey]];
+            let visited = new Set();
+            visited.add(endKey);
+
+            let cyclePathKeys = null;
+            // console.log("Start and End Key: ",startKey,endKey)
+            // console.log('GRAPH: ',graph)
 
             while (queue.length > 0) {
                 let path = queue.shift();
-                let currentPt = path[path.length - 1];
-                let currentKey = `${currentPt.x},${currentPt.y}`;
-
-                if (currentKey === endKey && path.length > 2) {
-                    cyclePath = path;
+                let currentKey = path[path.length - 1];
+                // console.log(path)
+                if (currentKey === startKey) {
+                    cyclePathKeys = path; // We found the loop!
                     break;
                 }
 
-                for (let neighbor of adj[currentKey]) {
-                    let nKey = `${neighbor.x},${neighbor.y}`;
-                    if (path.length >= 2 && nKey === `${path[path.length-2].x},${path[path.length-2].y}`) continue;
-                    if (!visited.has(nKey)) {
-                        visited.add(nKey);
-                        queue.push([...path, neighbor]);
+                let neighbors = graph.get(currentKey);
+                if (neighbors) {
+                    for (let neighbor of neighbors) {
+                        // Prevent going backwards down the trail we just came from
+                        // We want the algorithm to wrap around the base borders
+                        let isImmediateBacktrack = (path.length > 1 && neighbor === path[path.length - 2]);
+
+                        if (!visited.has(neighbor) && !isImmediateBacktrack) {
+                            visited.add(neighbor);
+                            queue.push([...path, neighbor]);
+                        }
                     }
                 }
             }
 
-            if (cyclePath) {
+
+            // Re Add the last connection
+
+            // cyclePathKeys.push(`${lastConnection.end.x},${lastConnection.end.y}`)
+
+            // console.log(cyclePathKeys)
+
+            // 3. Process the Captured Area
+            if (cyclePathKeys) {
+                // Convert the string keys back to physical coordinates for the point-in-polygon check
+                let cyclePathCoords = cyclePathKeys.map(key => {
+                    let parts = key.split(',');
+                    //console.log("parti: ",parts)
+                    return {x:parseInt(parts[0]), y:parseInt(parts[1])}
+                });
+
+                //console.log(cyclePathCoords)
+                // Loop through all the "Yards" (cells) and assign ownership
                 for (let c = 0; c < cols - 1; c++) {
                     for (let r = 0; r < rows - 1; r++) {
-                        // Find the physical center point of the square
                         let cellCenterX = startX + (c + 0.5) * spacingX;
                         let cellCenterY = startY + (r + 0.5) * spacingY;
 
-                        // If the center is inside the captured polygon, overwrite the owner!
-                        if (isPointInOrOnPolygon({ x: cellCenterX, y: cellCenterY }, cyclePath)) {
+                        if (isPointInOrOnPolygon({ x: cellCenterX, y: cellCenterY }, cyclePathCoords)) {
                             cellOwnership[c][r] = entity.id;
                         }
                     }
                 }
 
-                updatePointSafety(); // Recalculate all safe vertices
+                // 4. Clean up and Update
+                entity.trailLines = []; // Clear the trail
+                updatePointSafety();    // Recalculate which fenceposts/vertices are safe
 
+                // (Insert your engulfment death check here)
                 // DEATH MECHANIC 3: ENGULFMENT
                 // Check if any other entity's current head position is inside this new area
                 for (let other of entities) {
                     if (other.id !== entity.id && !other.isDead) {
                         let otherPos = getPoint(other.col, other.row);
-                        if (isPointInOrOnPolygon(otherPos, cyclePath)) {
+                        if (isPointInOrOnPolygon(otherPos, cyclePathCoords)) {
                             console.log(`${other.id} was engulfed by ${entity.id}!`);
                             killEntity(other);
                         }
@@ -210,12 +267,18 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             }
         }
 
+
         // --- UTILS ---
         function getPoint(c, r) {
             return { x: startX + (c * spacingX), y: startY + (r * spacingY) };
         }
 
+        function getPointReverse(x, y) {
+            return { c: (startX + x) / spacingX, r: (startY + y) / spacingY };
+        }
+
         function isPointSafe(entity, pt) {
+
             return entity.drawnPoints.has(`${pt.x},${pt.y}`);
         }
 
@@ -251,18 +314,30 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
         }
 
         function setupEntityBase(entity) {
-            let p1 = getPoint(entity.col, entity.row);
-            let p2 = getPoint(entity.col, entity.row + 1);
-            let p3 = getPoint(entity.col + 1, entity.row + 1);
-            let p4 = getPoint(entity.col + 1, entity.row);
 
-            entity.completedLines.push({start: p1, end: p2});
-            entity.completedLines.push({start: p2, end: p3});
-            entity.completedLines.push({start: p3, end: p4});
-            checkForEnclosedArea(entity, p1, p4);
-            entity.completedLines.push({start: p4, end: p1});
+            cellOwnership[entity.col][entity.row] = entity.id
 
-            [p1, p2, p3, p4].forEach(p => entity.drawnPoints.set(`${p.x},${p.y}`, entity.colors.stroke));
+            checkForEnclosedArea(entity)//, p1, p4);
+            //entity.completedLines.push({start: p4, end: p1});
+            let allBorders = getDynamicBorders();
+            let myBorders = allBorders.filter(b => b.owner === entity.id);
+            //console.log("MY BORDERS: ",myBorders)
+            var p1 = myBorders[0].end
+            var p2 = myBorders[0].start
+            var p3 = myBorders[1].end
+            var p4 = myBorders[2].end
+            //console.log("MY POINTS: ",[p1, p2, p3, p4])
+
+            entity.drawnPoints.set(`${p1.x},${p1.y}`,true)
+            entity.drawnPoints.set(`${p2.x},${p2.y}`,true)
+            entity.drawnPoints.set(`${p3.x},${p3.y}`,true)
+            entity.drawnPoints.set(`${p4.x},${p4.y}`,true)
+
+            //console.log("MY POINTS: ",entity.drawnPoints)
+            globalHiddenPoints.add(`${p1.x},${p1.y}`)
+            globalHiddenPoints.add(`${p2.x},${p2.y}`)
+            globalHiddenPoints.add(`${p3.x},${p3.y}`)
+            globalHiddenPoints.add(`${p4.x},${p4.y}`)
         }
 
         function updatePointSafety() {
@@ -344,16 +419,16 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                     dx: -1, dy: 0, nextDx: -1, nextDy: 0,
                     colors: { fill: usercolor, stroke: currcolor, trail: trailcolor },
                     completedLines: [], completedAreas: [], drawnPoints: new Map(), trailLines: []
-                },
+                }/*,
                 {
                     id: 'Enemy',
                     isDead: false,
                     state: 'EXPAND',
                     col: cols - 4, row: rows - 4, // Bottom Right
-                    dx: -1, dy: 0, nextDx: -1, nextDy: 0,
+                    dx: Math.random()>0.5?-1:1, dy: 0, nextDx: Math.random()>0.5?-1:1, nextDy: 0,
                     colors: { fill: '#ff0000', stroke: '#111111', trail: 'rgba(255,0,0,0.5)' },
                     completedLines: [], completedAreas: [], drawnPoints: new Map(), trailLines: []
-                }
+                }*/
             ];
 
             // Initialize both bases
@@ -558,7 +633,29 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                 }
                 else if (isCurrentSafe && isNextSafe) {
                     // Jumping across base
-                    checkForEnclosedArea(ent, ent.currentPt, ent.nextPt);
+                    // If the cell i'll jump over is not owned by me add the trail to globalTrailLine
+                    let st = ent.currentPt
+                    let end = ent.nextPt
+
+                    // Cell associated with the start point
+                    let cell_start = getPointReverse(st.x,st.y)
+                    let cell_end = getPointReverse(end.x,end.y)
+
+                    console.log(cell_start, cell_end)
+                    // If I'm going over a cell that I don't own then traw the trail
+                    // The trail wont be visible it is needed to that the checkForEnclosedArea starts its search
+                    // DA SISTEMARE DEVI FARE CHE VEDANO LA CELL OWNERSHIP ANCHE ALLA LORO SX NON SOLO DX
+
+                    if ( ( cell_start.c < (cols - 1) && cell_start.r < (rows - 1) && cellOwnership[cell_start.c][cell_start.r]!=ent.id) ||
+                    ( cell_end.c < (cols - 1) && cell_end.r < (rows - 1) && cellOwnership[cell_end.c][cell_end.r]!=ent.id)
+                    ){
+                        ent.trailLines.push(newTrail);
+
+                    }
+
+
+                    checkForEnclosedArea(ent)//, ent.currentPt, ent.nextPt);
+                    //globalTrailLines.push(newTrail);
                     console.log("JUMPING")
                 }
                 else if (!isCurrentSafe && !isNextSafe) {
@@ -570,18 +667,13 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                 else if (!isCurrentSafe && isNextSafe) {
                     console.log("RETURNING")
                     // Reconnecting to Base
-                    for (let tl of ent.trailLines) {
-                        let compLine = { ownerId: ent.id, start: tl.start, end: tl.end, color: ent.colors.stroke };
-                        ent.completedLines.push(compLine);
-                        globalCompletedLines.push(compLine);
-                        ent.drawnPoints.set(`${tl.start.x},${tl.start.y}`, ent.colors.stroke);
-                        ent.drawnPoints.set(`${tl.end.x},${tl.end.y}`, ent.colors.stroke);
-                    }
-                    checkForEnclosedArea(ent, ent.currentPt, ent.nextPt);
-
                     let finalLine = { ownerId: ent.id, start: ent.currentPt, end: ent.nextPt, color: ent.colors.stroke };
-                    ent.completedLines.push(finalLine);
-                    globalCompletedLines.push(finalLine);
+                    ent.trailLines.push(finalLine);
+
+                    checkForEnclosedArea(ent)//, ent.currentPt, ent.nextPt);
+
+
+
 
                     // Clear active trail locally AND globally
                     ent.trailLines = [];
