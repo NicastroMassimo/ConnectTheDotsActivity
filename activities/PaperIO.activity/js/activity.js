@@ -278,7 +278,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
         }
 
         function isPointSafe(entity, pt) {
-
+            console.log(entity,pt)
             return entity.drawnPoints.has(`${pt.x},${pt.y}`);
         }
 
@@ -415,11 +415,11 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                 {
                     id: 'Player',
                     isDead: false,
-                    col: 2, row: 2, // Top Left
+                    col: 1, row: 1, // Top Left
                     dx: -1, dy: 0, nextDx: -1, nextDy: 0,
                     colors: { fill: usercolor, stroke: currcolor, trail: trailcolor },
                     completedLines: [], completedAreas: [], drawnPoints: new Map(), trailLines: []
-                }/*,
+                },
                 {
                     id: 'Enemy',
                     isDead: false,
@@ -428,7 +428,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                     dx: Math.random()>0.5?-1:1, dy: 0, nextDx: Math.random()>0.5?-1:1, nextDy: 0,
                     colors: { fill: '#ff0000', stroke: '#111111', trail: 'rgba(255,0,0,0.5)' },
                     completedLines: [], completedAreas: [], drawnPoints: new Map(), trailLines: []
-                }*/
+                }
             ];
 
             // Initialize both bases
@@ -629,7 +629,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                     // Leaving Base
                     ent.trailLines.push(newTrail);
                     globalTrailLines.push(newTrail);
-                    console.log("LEAVING")
+                    // console.log("LEAVING")
                 }
                 else if (isCurrentSafe && isNextSafe) {
                     // Jumping across base
@@ -645,27 +645,44 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                     // If I'm going over a cell that I don't own then traw the trail
                     // The trail wont be visible it is needed to that the checkForEnclosedArea starts its search
                     // DA SISTEMARE DEVI FARE CHE VEDANO LA CELL OWNERSHIP ANCHE ALLA LORO SX NON SOLO DX
+                    let check_start = cell_start.c < (cols ) && cell_start.r < (rows ) && cellOwnership[cell_start.c - 1][cell_start.r - 1]!=ent.id
+                    let check_end = cell_end.c < (cols ) && cell_end.r < (rows ) && cellOwnership[cell_end.c - 1][cell_end.r - 1]!=ent.id
 
-                    if ( ( cell_start.c < (cols - 1) && cell_start.r < (rows - 1) && cellOwnership[cell_start.c][cell_start.r]!=ent.id) ||
-                    ( cell_end.c < (cols - 1) && cell_end.r < (rows - 1) && cellOwnership[cell_end.c][cell_end.r]!=ent.id)
-                    ){
+                    // console.log("check_end: ",check_end)
+
+                    // console.log("cella_start: ",cellOwnership[cell_start.c - 1][cell_start.r - 1])
+                    // console.log("cella_end: ",cellOwnership[cell_end.c - 1][cell_end.r - 1])
+
+                    // console.log("check_start: ",check_start)
+
+                    if ( (check_start || check_end)  && (cell_start.c < cols && cell_end.c < cols) )
+                    {
                         ent.trailLines.push(newTrail);
-
                     }
-
+                    else if (cell_start.c == cols && cell_end.c == cols &&
+                        (cellOwnership[cell_end.c - 2][cell_end.r - 1]!=ent.id || cellOwnership[cell_start.c - 2][cell_end.r - 1])){
+                        // When we are at the edge we need to check for the cell at the left not the one on the right as we would usually do
+                        ent.trailLines.push(newTrail);
+                    }
+                    else if (cell_start.r == rows && cell_start.r == rows &&
+                        (cellOwnership[cell_end.c - 1][cell_end.r - 2]!=ent.id || cellOwnership[cell_start.c - 1][cell_end.r - 2])){
+                        console.log("DOWN")
+                        // DA SISTEMARE PERCHè non va
+                        ent.trailLines.push(newTrail)
+                    }
 
                     checkForEnclosedArea(ent)//, ent.currentPt, ent.nextPt);
                     //globalTrailLines.push(newTrail);
-                    console.log("JUMPING")
+                    // console.log("JUMPING")
                 }
                 else if (!isCurrentSafe && !isNextSafe) {
                     // In the Wild
                     ent.trailLines.push(newTrail);
                     globalTrailLines.push(newTrail);
-                    console.log("WILD")
+                    // console.log("WILD")
                 }
                 else if (!isCurrentSafe && isNextSafe) {
-                    console.log("RETURNING")
+                    // console.log("RETURNING")
                     // Reconnecting to Base
                     let finalLine = { ownerId: ent.id, start: ent.currentPt, end: ent.nextPt, color: ent.colors.stroke };
                     ent.trailLines.push(finalLine);
@@ -770,24 +787,88 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             }
         });
 
+        // --- SHARING LOGIC ---
+        var presence = null;
+        var palette = new presencepalette.PresencePalette(document.getElementById("network-button"), undefined);
+        var isHost = false;
+        palette.addEventListener('shared', function() {
+            palette.popDown();
+            console.log("Want to share");
+            presence = activity.getPresenceObject(function(error, network) {
+                if (error) {
+                    console.log("Sharing error");
+                    return;
+                }
+                network.createSharedActivity('org.sugarlabs.PaperIO', function(groupId) {
+                    console.log("Activity shared");
+                    isHost = true;
+                });
+                // Remove the Enemy
+                killEntity(entities.filter(e => e.id == 'Enemy')[0])
 
-        /*
+                network.onDataReceived(onNetworkDataReceived);
+                network.onSharedActivityUserChanged(onNetworkUserChanged);
+            });
+        });
+        var cnt = 0
         var onNetworkDataReceived = function(msg) {
             if (presence.getUserInfo().networkId === msg.user.networkId) {
                 return;
             }
             switch (msg.content.action) {
                 case 'init':
-                    pawns = msg.content.data;
-                    document.getElementById("canvas").style.backgroundImage = msg.content.url
-                    drawPawns();
+                    console.log("YOUR WELCOME")
+                    // GIVE THE STATUS OF THE BOARD TO THE PLAYER
+                    cellOwnership = JSON.parse(msg.content.cellOwnership)
+
+                    // GIVE GIVE THE ENTITIES ARRAY TO THE PLAYER
+                    let temp = JSON.parse(msg.content.entities)
+                    let curr = entities[0]
+                    entities = [...temp,curr]
+
+                    console.log("Curr: ",curr)
+                    console.log("Cell Ownership: ",cellOwnership)
+                    // GIVE ALL THE TRAIL LINES
+                    globalTrailLines = JSON.parse(msg.content.globalTrailLines)
+
+                    // Update the ID
+                    curr.id = curr.id + cnt
+                    cnt += 1
+
+                    // CREATE A ZONE WHERE THE PLAYER SHOULD SPAWN
+                    let possible_position = [ [1,1], [cols - 1, 1], [1, rows -  1], [cols - 1, rows -1 ]]
+
+
+                    for (var pos of possible_position)
+                        if (cellOwnership[pos[0],pos[1]]==null){
+                            curr.col = pos[0]
+                            curr.row = pos[1]
+                        }
+
+                    setupEntityBase(curr)
+
+
+                    // THE PLAYER SHOULD GIVE ITS ENTITY SO THAT THE OTHER PLAYER CAN USE IT
+
+                    // GIVE THE NEW BOARD SINCE IT GOT UPDATED WITH THE STARTING BOARD
+
+                    // ADD A POP UP THAT GOES AWAY ONLY WHEN THE MAIN STARTS THE MATCH (STRETCH GOAL)
+
+                    // START DRAWING
+                    if (gameLoop) clearInterval(gameLoop);
+                    gameLoop = setInterval(updateTick, 180 * 2);
+                    drawScene();
                     break;
                 case 'update':
+                    // EVERY PLAYER SEND THIS TO EVERY OTHER TOGHETER WITH THE ID SO THAT EACH CAN DRAW THE STATUS
+                    // OF THE TABLE AND CHECK FOR COLLISION
                     pawns.push(msg.content.data);
                     drawPawns();
                     document.getElementById("user").innerHTML = "<h1>"+l10n.get("Played", {name:msg.user.name})+"</h1>";
                     break;
-                case 'update-img':
+                case 'die':
+                    // I DONT THINK IT IS NECESSARY SINCE EVERYONE WILL UPDATE IT IN REAL TIME LOCALLY
+                    // WHEN SOMEONE DIES
                     document.getElementById("canvas").style.backgroundImage = msg.content.url;
                     break;
             }
@@ -799,15 +880,16 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                     user: presence.getUserInfo(),
                     content: {
                         action: 'init',
-                        url: document.getElementById("canvas").style.backgroundImage,
-                        data: pawns
+                        cellOwnership: JSON.stringify(cellOwnership),
+                        entities: JSON.stringify(entities),
+                        globalTrailLines: JSON.stringify(globalTrailLines)
                     }
                 });
             }
             console.log("User "+msg.user.name+" "+(msg.move == 1 ? "join": "leave"));
         };
-        */
-        // Boot Up
+
+
 
 
         /*
@@ -874,25 +956,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
         // Add Palette
         // Link presence palette
         // Link presence palette
-        var presence = null;
-        var palette = new presencepalette.PresencePalette(document.getElementById("network-button"), undefined);
-        var isHost = false;
-        palette.addEventListener('shared', function() {
-            palette.popDown();
-            console.log("Want to share");
-            presence = activity.getPresenceObject(function(error, network) {
-                if (error) {
-                    console.log("Sharing error");
-                    return;
-                }
-                network.createSharedActivity('org.sugarlabs.Pawn', function(groupId) {
-                    console.log("Activity shared");
-                    isHost = true;
-                });
-                network.onDataReceived(onNetworkDataReceived);
-                network.onSharedActivityUserChanged(onNetworkUserChanged);
-            });
-        });
+
 
         // Picture Button
         document.getElementById("picture-button").addEventListener('click', function (e) {
