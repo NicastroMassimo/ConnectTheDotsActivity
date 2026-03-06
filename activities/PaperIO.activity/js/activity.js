@@ -52,6 +52,11 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                     network.onSharedActivityUserChanged(onNetworkUserChanged);
                 });
             }
+            else{
+                pId = 'Player'
+                initGame();
+            }
+
             // Boot up!
 
         });
@@ -95,7 +100,26 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
 
         // --- GAME STATE & ENTITIES ---
         let gameLoop;
-        let entities = [];
+         // Create Player and Enemy objects
+        let entities = [
+            {
+                id: 'Player',
+                isDead: false,
+                col: 1, row: 1, // Top Left
+                dx: -1, dy: 0, nextDx: -1, nextDy: 0,
+                colors: { fill: usercolor, stroke: currcolor, trail: trailcolor },
+                completedLines: [], completedAreas: [], drawnPoints: new Map(), trailLines: []
+            },
+            {
+                id: 'Enemy',
+                isDead: false,
+                state: 'EXPAND',
+                col: cols - 4, row: rows - 4, // Bottom Right
+                dx: Math.random()>0.5?-1:1, dy: 0, nextDx: Math.random()>0.5?-1:1, nextDy: 0,
+                colors: { fill: '#ff0000', stroke: '#111111', trail: 'rgba(255,0,0,0.5)' },
+                completedLines: [], completedAreas: [], drawnPoints: new Map(), trailLines: []
+            }
+        ]
         //let globalHiddenPoints = new Set(); // Points hidden by filled areas
 
         // NEW: Global rendering queues for chronological drawing
@@ -278,11 +302,12 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
         }
 
         function isPointSafe(entity, pt) {
-            console.log(entity,pt)
+            // console.log(entity.drawnPoints,pt)
             return entity.drawnPoints.has(`${pt.x},${pt.y}`);
         }
 
         function killEntity(entity) {
+            console.log("Killed Entity: ",entity)
             entity.isDead = true;
             // Free up the hidden dots they were covering so the grid shows again
             // TO FIX: only if the point isn't into any other area else keep it hidden
@@ -315,6 +340,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
 
         function setupEntityBase(entity) {
 
+            console.log("Setatta: ",entity)
             cellOwnership[entity.col][entity.row] = entity.id
 
             checkForEnclosedArea(entity)//, p1, p4);
@@ -406,36 +432,17 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
 
         function initGame() {
             // There are (cols-1) x (rows-1) squares between the points
+            console.log("INITIT")
             cellOwnership = Array.from({length: cols - 1}, () => new Array(rows - 1).fill(null));
             globalHiddenPoints.clear();
             globalTrailLines = [];
 
-            // Create Player and Enemy objects
-            entities = [
-                {
-                    id: 'Player',
-                    isDead: false,
-                    col: 1, row: 1, // Top Left
-                    dx: -1, dy: 0, nextDx: -1, nextDy: 0,
-                    colors: { fill: usercolor, stroke: currcolor, trail: trailcolor },
-                    completedLines: [], completedAreas: [], drawnPoints: new Map(), trailLines: []
-                },
-                {
-                    id: 'Enemy',
-                    isDead: false,
-                    state: 'EXPAND',
-                    col: cols - 4, row: rows - 4, // Bottom Right
-                    dx: Math.random()>0.5?-1:1, dy: 0, nextDx: Math.random()>0.5?-1:1, nextDy: 0,
-                    colors: { fill: '#ff0000', stroke: '#111111', trail: 'rgba(255,0,0,0.5)' },
-                    completedLines: [], completedAreas: [], drawnPoints: new Map(), trailLines: []
-                }
-            ];
 
             // Initialize both bases
             entities.forEach(ent => setupEntityBase(ent));
 
             if (gameLoop) clearInterval(gameLoop);
-            gameLoop = setInterval(updateTick, 180 * 2);
+            gameLoop = setInterval(updateTick, 180 * 4);
             drawScene();
         }
         // -- AI LOGIC --
@@ -689,9 +696,6 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
 
                     checkForEnclosedArea(ent)//, ent.currentPt, ent.nextPt);
 
-
-
-
                     // Clear active trail locally AND globally
                     ent.trailLines = [];
                     globalTrailLines = globalTrailLines.filter(t => t.ownerId !== ent.id);
@@ -703,11 +707,33 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             });
 
             drawScene();
-        }
+
+            // --- NEW: HOST BROADCASTS THE TICK ---
+            if (presence && isHost) {
+                let id_points = {};
+                for (let ent of entities) {
+                    id_points[ent.id] = JSON.stringify([...ent.drawnPoints.keys()]);
+                }
+
+                presence.sendMessage(presence.getSharedInfo().id, {
+                    user: presence.getUserInfo(),
+                    content: {
+                        action: 'tick', // New action!
+                        entities: JSON.stringify(entities),
+                        cellOwnership: JSON.stringify(cellOwnership),
+                        globalTrailLines: JSON.stringify(globalTrailLines),
+                        id_points: JSON.stringify(id_points),
+                        globalHiddenPoints: JSON.stringify([...globalHiddenPoints])
+                    }
+                });
+            }
+
+        }// End of updateTick function
 
         // --- RENDERING ---
         function drawScene() {
-             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // 0. Draw Grid Dots
             ctx.fillStyle = '#444';
@@ -766,11 +792,28 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             });
         }
 
-        initGame();
+
+
 
         // --- INPUT: MOUSE STEERING (Only controls the Player) ---
+        var pId // Id of the player we are controlling, default is Player
+        // 1. Create a variable to remember the last time the code ran
+        let lastMouseUpdate = 0;
+        // 2. Set how many milliseconds to wait between updates (e.g., 50ms is roughly 20 times a second)
+        const MOUSE_THROTTLE_MS = 0;
+
         canvas.addEventListener('mousemove', (e) => {
-            let player = entities.find(ent => ent.id === 'Player');
+            // 3. Get the current time
+            let now = Date.now();
+
+            // 4. If enough time hasn't passed since the last update, STOP here and do nothing.
+            if (now - lastMouseUpdate < MOUSE_THROTTLE_MS) return;
+
+            // 5. If we made it past the check, update the timestamp so the next event is forced to wait
+            lastMouseUpdate = now;
+
+            //console.log('IDPLAYER: ',pId)
+            let player = entities.find(ent => ent.id === pId);
             if (!player || player.isDead) return;
 
             let px = startX + player.col * spacingX;
@@ -785,6 +828,15 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                 if (diffY > 0 && player.dy !== -1) { player.nextDx = 0; player.nextDy = 1; }
                 else if (diffY < 0 && player.dy !== 1) { player.nextDx = 0; player.nextDy = -1; }
             }
+
+            // Send the new dx , dy
+            presence.sendMessage(presence.getSharedInfo().id, {
+                user: presence.getUserInfo(),
+                content: {
+                    action: 'move',
+                    id_direction: JSON.stringify([pId,player.nextDx,player.nextDy])
+                }
+            });
         });
 
         // --- SHARING LOGIC ---
@@ -805,12 +857,13 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                 });
                 // Remove the Enemy
                 killEntity(entities.filter(e => e.id == 'Enemy')[0])
-
+                console.log("Entities: ",entities)
                 network.onDataReceived(onNetworkDataReceived);
                 network.onSharedActivityUserChanged(onNetworkUserChanged);
             });
         });
         var cnt = 0
+
         var onNetworkDataReceived = function(msg) {
             if (presence.getUserInfo().networkId === msg.user.networkId) {
                 return;
@@ -818,71 +871,137 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             switch (msg.content.action) {
                 case 'init':
                     console.log("YOUR WELCOME")
+
                     // GIVE THE STATUS OF THE BOARD TO THE PLAYER
                     cellOwnership = JSON.parse(msg.content.cellOwnership)
 
-                    // GIVE GIVE THE ENTITIES ARRAY TO THE PLAYER
+                    // GIVE THE ENTITIES ARRAY TO THE PLAYER
                     let temp = JSON.parse(msg.content.entities)
                     let curr = entities[0]
-                    entities = [...temp,curr]
+                    entities = [...temp]
+                    entities.forEach(e => e.drawnPoints = new Map())
 
-                    console.log("Curr: ",curr)
-                    console.log("Cell Ownership: ",cellOwnership)
-                    // GIVE ALL THE TRAIL LINES
+                    // SET THE POINT OF EACH
+                    let entities_points = JSON.parse(msg.content.id_points)
+                    for (var k of Object.keys(entities_points))
+                        entities_points[k] = JSON.parse(entities_points[k])
+
+                    entities.forEach( e => {
+                        if(entities_points[e.id]) {
+                            for (var point of entities_points[e.id])
+                                e.drawnPoints.set(point,true)
+                        }
+                    })
+
+                    // ADD THE PLAYER ENTITY
+                    entities.push(curr)
+
+                    // GIVE ALL THE TRAIL LINES AND HIDDEN POINTS
                     globalTrailLines = JSON.parse(msg.content.globalTrailLines)
+                    globalHiddenPoints = new Set(JSON.parse(msg.content.globalHiddenPoints || "[]"));
 
                     // Update the ID
                     curr.id = curr.id + cnt
                     cnt += 1
+                    pId = curr.id
 
                     // CREATE A ZONE WHERE THE PLAYER SHOULD SPAWN
-                    let possible_position = [ [1,1], [cols - 1, 1], [1, rows -  1], [cols - 1, rows -1 ]]
+                    let possible_position = [ [cols - 2, rows - 2 ]]
 
-
-                    for (var pos of possible_position)
-                        if (cellOwnership[pos[0],pos[1]]==null){
-                            curr.col = pos[0]
-                            curr.row = pos[1]
-                        }
-
+                    for (var pos of possible_position){
+                        curr.col = pos[0]
+                        curr.row = pos[1]
+                    }
                     setupEntityBase(curr)
 
+                    var id_points = JSON.stringify([...curr.drawnPoints.keys()])
 
-                    // THE PLAYER SHOULD GIVE ITS ENTITY SO THAT THE OTHER PLAYER CAN USE IT
+                    presence.sendMessage(presence.getSharedInfo().id, {
+                        user: presence.getUserInfo(),
+                        content: {
+                            action: 'add',
+                            entity: JSON.stringify(curr),
+                            id_points: id_points,
+                            cellOwnership: JSON.stringify(cellOwnership)
+                        }
+                    });
 
-                    // GIVE THE NEW BOARD SINCE IT GOT UPDATED WITH THE STARTING BOARD
-
-                    // ADD A POP UP THAT GOES AWAY ONLY WHEN THE MAIN STARTS THE MATCH (STRETCH GOAL)
-
-                    // START DRAWING
+                    // MODIFIED: Do NOT start a setInterval here.
+                    // The client just clears any rogue loops and draws the first frame.
                     if (gameLoop) clearInterval(gameLoop);
-                    gameLoop = setInterval(updateTick, 180 * 2);
                     drawScene();
                     break;
-                case 'update':
-                    // EVERY PLAYER SEND THIS TO EVERY OTHER TOGHETER WITH THE ID SO THAT EACH CAN DRAW THE STATUS
-                    // OF THE TABLE AND CHECK FOR COLLISION
-                    pawns.push(msg.content.data);
-                    drawPawns();
-                    document.getElementById("user").innerHTML = "<h1>"+l10n.get("Played", {name:msg.user.name})+"</h1>";
+
+                case 'move':
+                    // MODIFIED: Only the Host processes movement intents now.
+                    if (!isHost) return;
+
+                    let id_dir = JSON.parse(msg.content.id_direction)
+                    entities.forEach(e => {
+                        if(e.id==id_dir[0]){
+                            e.nextDx = id_dir[1]
+                            e.nextDy = id_dir[2]
+                        }
+                    })
                     break;
-                case 'die':
-                    // I DONT THINK IT IS NECESSARY SINCE EVERYONE WILL UPDATE IT IN REAL TIME LOCALLY
-                    // WHEN SOMEONE DIES
-                    document.getElementById("canvas").style.backgroundImage = msg.content.url;
+
+                case 'add':
+                    let t = JSON.parse(msg.content.entity)
+                    t.drawnPoints = new Map()
+                    let t_points = [...JSON.parse(msg.content.id_points)]
+                    t_points.forEach(p => t.drawnPoints.set(p,true))
+                    entities.push(t)
+                    cellOwnership = JSON.parse(msg.content.cellOwnership)
+                    break;
+
+                // --- NEW: CLIENT RECEIVES THE TRUTH FROM THE HOST EVERY TICK ---
+                case 'tick':
+                    if (isHost) return; // Host ignores its own broadcasts
+
+                    let syncEnts = JSON.parse(msg.content.entities);
+                    let syncPoints = JSON.parse(msg.content.id_points);
+
+                    for (let k of Object.keys(syncPoints)) {
+                        syncPoints[k] = JSON.parse(syncPoints[k]);
+                    }
+
+                    // Rebuild the Maps for drawn points
+                    syncEnts.forEach(e => {
+                        e.drawnPoints = new Map();
+                        if (syncPoints[e.id]) {
+                            for (let point of syncPoints[e.id]) {
+                                e.drawnPoints.set(point, true);
+                            }
+                        }
+                    });
+
+                    // Overwrite the client's reality with the Host's reality
+                    entities = syncEnts;
+                    cellOwnership = JSON.parse(msg.content.cellOwnership);
+                    globalTrailLines = JSON.parse(msg.content.globalTrailLines);
+                    globalHiddenPoints = new Set(JSON.parse(msg.content.globalHiddenPoints));
+
+                    drawScene();
                     break;
             }
         };
 
         var onNetworkUserChanged = function(msg) {
             if (isHost) {
+                var id_points = {}
+                for (var ent of entities){
+                    id_points[ent.id] = JSON.stringify([...ent.drawnPoints.keys()])
+                }
+
                 presence.sendMessage(presence.getSharedInfo().id, {
                     user: presence.getUserInfo(),
                     content: {
                         action: 'init',
                         cellOwnership: JSON.stringify(cellOwnership),
+                        id_points: JSON.stringify(id_points),
                         entities: JSON.stringify(entities),
-                        globalTrailLines: JSON.stringify(globalTrailLines)
+                        globalTrailLines: JSON.stringify(globalTrailLines),
+                        globalHiddenPoints: JSON.stringify([...globalHiddenPoints]) // <-- Added this
                     }
                 });
             }
