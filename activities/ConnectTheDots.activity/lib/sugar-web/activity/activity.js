@@ -237,6 +237,5 @@ define(["sugar-web/activity/shortcut",
 
         bus.sendMessage("activity.show_object_chooser", [], onResponseReceived);
     };
-
     return activity;
 });

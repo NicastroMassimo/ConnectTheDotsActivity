@@ -21,9 +21,11 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             usercolor = currentenv.user.colorvalue.fill
 
             // Force the new colors
-            entities[0].colors = { fill: usercolor, stroke: currcolor, trail: trailcolor }
-            // Set the starting base color
-            // globalCompletedAreas[0].color = currentenv.user.colorvalue.stroke
+            // Force the new colors
+            entities[0].colors = { fill: usercolor, stroke: currcolor, trail: trailcolor };
+
+            // --- NEW: Add the user's name to their entity ---
+            entities[0].name = currentenv.user.name || "Player";
 
             // Set current language to Sugarizer
             var defaultLanguage = (typeof chrome != 'undefined' && chrome.app && chrome.app.runtime)
@@ -43,6 +45,8 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                     }
                 });
             }
+
+
 
             // Shared instances
             if (environment.sharedId) {
@@ -89,6 +93,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
         let completedAreas = [];
         let drawnPoints = new Map();
         let hiddenPoints = new Set();
+        let globalFloatingTexts = []; // <-- NEW: Array for floating text animations
 
         // Player Entity
         let playerCol, playerRow;
@@ -171,8 +176,6 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             console.log("Enclosed")
             // Remove the last step so that I force the path to follow the long route
             var lastConnection = entity.trailLines.pop()
-
-
 
             var startNode = lastConnection.start; // Where the trail left the base
             var endNode = lastConnection.end; // Where it just connected
@@ -261,6 +264,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
 
                 //console.log(cyclePathCoords)
                 // Loop through all the "Yards" (cells) and assign ownership
+                /*
                 for (let c = 0; c < cols - 1; c++) {
                     for (let r = 0; r < rows - 1; r++) {
                         let cellCenterX = startX + (c + 0.5) * spacingX;
@@ -270,6 +274,34 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                             cellOwnership[c][r] = entity.id;
                         }
                     }
+                }
+                */
+                let capturedCount = 0;
+
+                for (let c = 0; c < cols - 1; c++) {
+                    for (let r = 0; r < rows - 1; r++) {
+                        let cellCenterX = startX + (c + 0.5) * spacingX;
+                        let cellCenterY = startY + (r + 0.5) * spacingY;
+
+                        if (isPointInOrOnPolygon({ x: cellCenterX, y: cellCenterY }, cyclePathCoords)) {
+                            // Only count it if it wasn't ALREADY owned by this player
+                            if (cellOwnership[c][r] !== entity.id) {
+                                cellOwnership[c][r] = entity.id;
+                                capturedCount++;
+                            }
+                        }
+                    }
+                }
+
+                // --- NEW: Spawn the floating text if cells were captured ---
+                if (capturedCount > 0) {
+                    globalFloatingTexts.push({
+                        x: startX + entity.col * spacingX,
+                        y: startY + entity.row * spacingY - 20,
+                        text: `+${capturedCount}`,
+                        color: entity.colors.fill, // <-- FIX 3: Changed from stroke to fill
+                        life: 4
+                    });
                 }
 
                 // 4. Clean up and Update
@@ -288,6 +320,8 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                         }
                     }
                 }
+
+
             }
         }
 
@@ -442,7 +476,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             entities.forEach(ent => setupEntityBase(ent));
 
             if (gameLoop) clearInterval(gameLoop);
-            gameLoop = setInterval(updateTick, 180 * 4);
+            gameLoop = setInterval(updateTick, 180 * 3);
             drawScene();
         }
         // -- AI LOGIC --
@@ -568,6 +602,14 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             }
         }
         function updateTick() {
+
+            // --- FIX 1: Animate texts unconditionally in the tick loop ---
+            globalFloatingTexts.forEach(ft => {
+                ft.y -= 5;    // Move up
+                ft.life -= 1; // Reduce lifespan
+            });
+            // Keep only texts that are still alive
+            globalFloatingTexts = globalFloatingTexts.filter(ft => ft.life > 0);
 
             // 0. Run enemy AI to chose its state and the next step to do
             let playerEnt = entities.find(e => e.id === 'Player');
@@ -706,6 +748,8 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                 ent.row = ent.nextRow;
             });
 
+
+
             drawScene();
 
             // --- NEW: HOST BROADCASTS THE TICK ---
@@ -765,7 +809,7 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
             let dynamicBorders = getDynamicBorders();
             ctx.lineWidth = 4;
             for (let line of dynamicBorders) {
-                ctx.strokeStyle = 'pink'//line.color;
+                ctx.strokeStyle = line.color;
                 ctx.beginPath();
                 ctx.moveTo(line.start.x, line.start.y);
                 ctx.lineTo(line.end.x, line.end.y);
@@ -790,6 +834,63 @@ function (activity, env, icon, l10n, presencepalette, datastore, journalchooser,
                 ctx.fillStyle = ent.colors.fill;
                 ctx.fillRect(pX - 10, pY - 10, 20, 20);
             });
+
+            // --- 1. DRAW PLAYER NAMES ---
+            for (let ent of entities) {
+            if (ent.isDead) continue; // <-- FIX 2: Skip drawing dead players' names
+
+            ctx.fillStyle = ent.colors.fill; // <-- FIX 3: Match the primary player color
+            ctx.font = "bold 14px Arial";
+            ctx.textAlign = "center";
+            let px = startX + ent.col * spacingX;
+            let py = startY + ent.row * spacingY;
+            ctx.fillText(ent.name || "Player", px, py - 20);
+            }
+
+            // --- 2. DRAW FLOATING TEXTS ---
+            for (let ft of globalFloatingTexts) {
+                ctx.globalAlpha = ft.life / 4;
+                ctx.fillStyle = ft.color; // (This now correctly pulls the fill color from above)
+                ctx.font = "bold 20px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(ft.text, ft.x, ft.y);
+            }
+            ctx.globalAlpha = 1.0;
+
+            // --- 3. CALCULATE & DRAW LEADERBOARD ---
+            // --- 3. CALCULATE & UPDATE HTML LEADERBOARD ---
+            let aliveEntities = entities.filter(e => !e.isDead);
+
+            let scores = {};
+            aliveEntities.forEach(e => scores[e.id] = 0);
+
+            // Tally up the cells
+            for (let c = 0; c < cols - 1; c++) {
+                for (let r = 0; r < rows - 1; r++) {
+                    let owner = cellOwnership[c][r];
+                    if (owner && scores[owner] !== undefined) scores[owner]++;
+                }
+            }
+
+            // Sort remaining players by score
+            let sortedEntities = aliveEntities.sort((a, b) => scores[b.id] - scores[a.id]);
+
+            // Update the HTML DOM
+            const leaderboardList = document.getElementById('leaderboard-list');
+            if (leaderboardList) {
+                leaderboardList.innerHTML = ''; // Clear the old list
+
+                sortedEntities.forEach((ent, index) => {
+                    let li = document.createElement('li');
+                    li.style.color = ent.colors.fill; // Match the player's fill color
+                    li.style.fontWeight = 'bold';
+                    li.style.fontSize = '16px';
+                    li.style.margin = '10px 0';
+
+                    li.innerText = `${index + 1}. ${ent.name || 'Player'} : ${scores[ent.id]}`;
+                    leaderboardList.appendChild(li);
+                });
+            }
         }
 
 

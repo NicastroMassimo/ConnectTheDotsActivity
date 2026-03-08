@@ -30,13 +30,21 @@
 </div>
 
 <!-- The content of your activity goes inside the canvas -->
-<div id="canvas">
+<div id="canvas" style="display: flex; flex-direction: row; align-items: center; padding: 20px;">
 
-  <!-- Replace this message with your own content -->
-  <h1 id="Joined" ></h1>
-  <canvas id="drawCanvas" width="800" height="500"></canvas>
+  <div>
+    <h1 id="Joined"></h1>
+    <canvas id="drawCanvas" width="800" height="500"></canvas>
+  </div>
+
+  <div id="leaderboard" style="margin-left: 20px; padding: 15px; background: rgba(255, 255, 255, 0.85); border: 2px solid #ccc; border-radius: 8px; min-width: 200px; font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Territory Control</h3>
+    <ul id="leaderboard-list" style="list-style-type: none; padding: 0; margin: 0;">
+      </ul>
+  </div>
 
 </div>
+
 </body>
 
 </html>

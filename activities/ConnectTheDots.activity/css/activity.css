@@ -81,6 +81,18 @@ body {
 	background-image: url(../icons/help.svg);
 }
 
+#main-toolbar #connect-dots-button{
+    background-image: url(../activity/activity-icon.svg);
+}
+
+#main-toolbar #number-mode-button{
+    background-image: url(../icons/go-left.svg);
+}
+
+#main-toolbar #paperio-button{
+    background-image: url(../icons/go-right.svg);
+}
+
 /* UI styling for introJs-tutorial */
 
 .introjs-overlay {
