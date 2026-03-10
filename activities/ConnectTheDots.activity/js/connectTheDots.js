@@ -355,11 +355,6 @@ function (presencepalette, humane, l10n) {
 
         }
 
-        // If we JOINED a game, the network is already ready, so setup immediately
-        if (presence) {
-            mode.setupNetwork(presence, hostStatus);
-        }
-
         // Mouse EVENT
         canvas.addEventListener('mousedown', (e) => {
           const closest = getClosestPoint(e.offsetX, e.offsetY);
@@ -464,6 +459,11 @@ function (presencepalette, humane, l10n) {
             drawScene()
         })
 
+        // If we JOINED a game, the network is already ready, so setup immediately
+        if (presence) {
+            mode.setupNetwork(presence, hostStatus);
+        }
+
     };
 
     mode.setupNetwork = function (networkObj, hostStatus){
@@ -478,7 +478,7 @@ function (presencepalette, humane, l10n) {
             if (presence.getUserInfo().networkId === msg.user.networkId) return;
 
             switch(msg.content.action) {
-                case 'init':
+                case 'init_connectTheDots':
                     // A late-joiner receives the current board state from the host
                     if (!isHost) {
                         completedLines = msg.content.lines;

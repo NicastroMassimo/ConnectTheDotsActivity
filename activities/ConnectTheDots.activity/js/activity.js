@@ -20,7 +20,7 @@ function (activity, env, datastore, l10n, connectTheDotsMode, paperIOMode, prese
 
         var isShared = false;
         var presence = null;
-
+        var temp = ""
         env.getEnvironment(function(err, environment) {
             currentenv = environment;
             var defaultLanguage = (typeof chrome != 'undefined' && chrome.app && chrome.app.runtime) ? chrome.i18n.getUILanguage() : navigator.language;
@@ -74,7 +74,7 @@ function (activity, env, datastore, l10n, connectTheDotsMode, paperIOMode, prese
 
             // SCENARIO B: We are inside a Game Page
             else if (document.getElementById('drawCanvas')) {
-                var temp = ""
+
                 // Check the URL to assign the correct game mode
                 if (currentPage.includes('connectTheDots')) {
                     activeGameMode = connectTheDotsMode;
@@ -126,7 +126,7 @@ function (activity, env, datastore, l10n, connectTheDotsMode, paperIOMode, prese
             console.log("Stop clicked, saving...");
 
             // Only save if we are actually inside a game mode (connectTheDots.html)
-            if (activeGameMode) {
+            if (activeGameMode && temp=='connectTheDots') {
 
                 var to_save = activeGameMode.getState();
                 var jsonData = JSON.stringify(to_save);
