@@ -1,8 +1,14 @@
 define(["sugar-web/activity/activity", "sugar-web/env", "sugar-web/datastore", "l10n",
-"./connectTheDots","sugar-web/graphics/presencepalette"],
-function (activity, env, datastore, l10n, connectTheDotsMode,presencepalette) {
+"./connectTheDots", "./paperIO", "sugar-web/graphics/presencepalette"],
+function (activity, env, datastore, l10n, connectTheDotsMode, paperIOMode, presencepalette) {
 
     requirejs(['domReady!'], function (doc) {
+
+        var currentenv;
+        var globalLoadedData = null;
+        var activeGameMode = null;
+        var isShared = false;
+        var presence = null;
 
         // Initialize the activity exactly ONCE per page load
         activity.setup();
@@ -37,39 +43,58 @@ function (activity, env, datastore, l10n, connectTheDotsMode,presencepalette) {
             }
         });
 
-        // --- 2. NETWORK SETUP & PAGE ROUTER ---
+        // 2. UPDATED ROUTER
         function setupNetworkAndRoute() {
+            var currentPage = window.location.pathname.split('/').pop();
 
-            // CHECK: Are we on the Main Menu?
-            if (document.getElementById('connect-dots-button')) {
-                if (isShared) {
-                    // Auto-redirect joiners directly to the game!
-                    console.log("REdirected")
+            // SCENARIO A: We are on the Main Menu (index.html)
+            if (currentPage === 'index.html' || currentPage === '') {
+
+                // Bind your menu buttons
+                document.getElementById('connect-dots-button').addEventListener('click', function() {
                     window.location.href = "connectTheDots.html" + window.location.search;
-                } else {
-                    document.getElementById('connect-dots-button').addEventListener('click', function() {
-                        window.location.href = "connectTheDots.html" + window.location.search;
+                });
+                document.getElementById('paperio-button').addEventListener('click', function() {
+                    window.location.href = "paperIO.html" + window.location.search;
+                });
+
+                // If joining, listen for the Host to tell us which game they are in!
+                if (isShared) {
+                    presence = activity.getPresenceObject(function(error, network) {
+                        network.onDataReceived(function(msg) {
+                            if (msg.content.action === 'init_connectTheDots') {
+                                window.location.href = "connectTheDots.html" + window.location.search;
+                            } else if (msg.content.action === 'init_paperIO') {
+                                window.location.href = "paperIO.html" + window.location.search;
+                            }
+                        });
                     });
                 }
             }
-            // CHECK: Are we on the Game Page?
+
+            // SCENARIO B: We are inside a Game Page
             else if (document.getElementById('drawCanvas')) {
-                activeGameMode = connectTheDotsMode;
+                var temp = ""
+                // Check the URL to assign the correct game mode
+                if (currentPage.includes('connectTheDots')) {
+                    activeGameMode = connectTheDotsMode;
+                    temp = "connectTheDots"
+                } else if (currentPage.includes('paperIO')) {
+                    activeGameMode = paperIOMode;
+                    temp = "paperIO"
+                }
+                //console.log("We are into: ",activeGameMode," ", temp)
                 var networkButton = document.getElementById("network-button");
 
                 if (isShared) {
-                    // SCENARIO A: WE ARE JOINING A GAME
+                    //console.log("Joined an online game")
                     presence = activity.getPresenceObject(function(error, network) {
                         var palette = new presencepalette.PresencePalette(networkButton, network);
-
-                        // Pass the network object to the game, and tell it we are NOT the host (false)
                         activeGameMode.init(activity, currentenv, datastore, network, globalLoadedData, false);
                     });
                 } else {
-                    // SCENARIO B: WE ARE LOCAL (But might share later)
+                    // Starting locally, but might share later
                     var palette = new presencepalette.PresencePalette(networkButton, undefined);
-                    console.log('Locally: ',globalLoadedData)
-                    // Start the game locally with no network (null)
                     activeGameMode.init(activity, currentenv, datastore, null, globalLoadedData, true);
 
                     // --- YOUR HOST SHARING LOGIC ---
@@ -93,8 +118,6 @@ function (activity, env, datastore, l10n, connectTheDotsMode,presencepalette) {
                 }
             }
         }
-
-
 
         // --- 3. GLOBAL SAVE ON STOP ---
         // Because BOTH HTML files have a button with id="stop-button", this code

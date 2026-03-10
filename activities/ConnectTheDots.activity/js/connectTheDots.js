@@ -360,78 +360,6 @@ function (presencepalette, humane, l10n) {
             mode.setupNetwork(presence, hostStatus);
         }
 
-        /*
-        var isHost = false;
-        // --- MULTIPLAYER LOGIC ---
-        if (presence) {
-            isHost = presence.isHost;
-
-            // 1. Listen for incoming network messages
-            presence.onDataReceived(function(msg) {
-                // Ignore our own messages
-                if (presence.getUserInfo().networkId === msg.user.networkId) return;
-
-                switch(msg.content.action) {
-                    case 'init':
-                        // A late-joiner receives the current board state from the host
-                        if (!isHost) {
-                            completedLines = msg.content.lines;
-                            completedAreas = msg.content.areas;
-
-                            drawnPoints = new Map();
-                            for (var el of msg.content.drawn) drawnPoints.set(el[0], el[1]);
-
-                            hiddenPoints = new Set();
-                            for (var el of msg.content.hidden) hiddenPoints.add(el);
-
-                            drawScene(true); // Update the canvas!
-                        }
-                        break;
-                    case 'draw':
-                        completedLines = msg.content.lines;
-
-                        drawnPoints = new Map()
-                        for (var el of msg.content.drawn){
-                            drawnPoints.set(el[0],el[1])
-                            //console.log(el)
-                        }
-                        //console.log("MESSAGGIO",JSON.stringify(msg.content.mouse))
-                        completedAreas = msg.content.areas
-                        hiddenPoints = new Set()
-                        for (var el of msg.content.hidden){
-                            hiddenPoints.add(el)
-                        }
-                        drawScene(true,msg.content.mouse.x,msg.content.mouse.y,
-                        msg.content.stp,false,msg.user.name);
-                        break;
-
-                    case 'clear':
-                        case 'clear':
-                        completedLines = []
-                        drawnPoints = new Map()
-                        drawScene(true);
-                        break
-                }
-            });
-
-            // 2. Host sends the 'init' state when a new player joins
-            presence.onSharedActivityUserChanged(function(msg) {
-                if (isHost && msg.move === 1) { // move 1 means "joined"
-                    presence.sendMessage(presence.getSharedInfo().id, {
-                        user: presence.getUserInfo(),
-                        content: {
-                            action: 'init',
-                            lines: completedLines,
-                            areas: completedAreas,
-                            drawn: [...drawnPoints.entries()],
-                            hidden: [...hiddenPoints.keys()]
-                        }
-                    });
-                }
-            });
-        }
-        */
-
         // Mouse EVENT
         canvas.addEventListener('mousedown', (e) => {
           const closest = getClosestPoint(e.offsetX, e.offsetY);
@@ -488,27 +416,6 @@ function (presencepalette, humane, l10n) {
           drawScene(false, null, null, null, true);
         });
 
-        // Button Action
-        /*
-        var palette = new presencepalette.PresencePalette(document.getElementById("network-button"), undefined);
-        var isHost = false;
-        palette.addEventListener('shared', function() {
-            palette.popDown();
-            console.log("Want to share");
-            presence = activity.getPresenceObject(function(error, network) {
-                if (error) {
-                    console.log("Sharing error");
-                    return;
-                }
-                network.createSharedActivity('org.sugarlabs.ConnectTheDots', function(groupId) {
-                    console.log("Activity shared");
-                    isHost = true;
-                });
-                network.onDataReceived(onNetworkDataReceived);
-                network.onSharedActivityUserChanged(onNetworkUserChanged);
-            });
-        });
-        */
         document.getElementById('clear-all-button').addEventListener('click',function (){
             completedLines = [];
             completedAreas = []
@@ -556,97 +463,6 @@ function (presencepalette, humane, l10n) {
             // Redraw normally
             drawScene()
         })
-
-        //multiplayer event
-        //Handle receiving messages
-        var onNetworkDataReceived = function(msg) {
-            if (loadedData.getUserInfo().networkId === msg.user.networkId) {
-                return;
-            }
-            switch (msg.content.action) {
-                case 'init':
-                    console.log(msg.content)
-
-                    completedLines = msg.content.lines;
-
-                    drawnPoints = new Map()
-                    for (var el of msg.content.drawn){
-                        drawnPoints.set(el[0],el[1])
-                        //console.log(el)
-                    }
-                    completedAreas = msg.content.areas
-
-                    hiddenPoints = new Set()
-
-                    for (var el of msg.content.hidden){
-                        hiddenPoints.add(el)
-                    }
-                    drawScene(true);
-
-                    //Send a Join message
-                    if (presence) {
-                        console.log("joined")
-                        presence.sendMessage(presence.getSharedInfo().id, {
-                            user: presence.getUserInfo(),
-                            content: {
-                                action: 'joined',
-                            }
-                        });
-                    }
-                    break;
-                case 'draw':
-                    completedLines = msg.content.lines;
-
-                    drawnPoints = new Map()
-                    for (var el of msg.content.drawn){
-                        drawnPoints.set(el[0],el[1])
-                        //console.log(el)
-                    }
-                    //console.log("MESSAGGIO",JSON.stringify(msg.content.mouse))
-                    completedAreas = msg.content.areas
-                    hiddenPoints = new Set()
-                    for (var el of msg.content.hidden){
-                        hiddenPoints.add(el)
-                    }
-                    drawScene(true,msg.content.mouse.x,msg.content.mouse.y,
-                    msg.content.stp,false,msg.user.name);
-                    break;
-                case 'clear':
-                    completedLines = []
-                    drawnPoints = new Map()
-                    drawScene(true);
-                    break
-                case 'joined':
-                    console.log("RECIEVED  JOIN",`${msg.user.name}`)
-                    var j = document.getElementById('Joined')
-                    j.innerText = `${msg.user.name} Joined!`
-                    j.style.opacity = '100%'
-                    console.log(j.classList)
-
-                    j.classList.remove('fade-out')
-                    j.classList.add('fade-out')
-
-
-            }
-        };
-
-        var onNetworkUserChanged = function(msg) {
-            if (isHost) {
-                console.log('MANDO MESSAGGIO')
-                presence.sendMessage(presence.getSharedInfo().id, {
-                    user: presence.getUserInfo(),
-                    content: {
-                        action: 'init',
-                        lines:completedLines,
-                        areas: completedAreas,
-                        hidden: [...hiddenPoints.keys()],
-                        drawn:[...drawnPoints.entries()]
-                    }
-                });
-            }
-            console.log("User "+msg.user.name+" "+(msg.move == 1 ? "join": "leave"));
-        };
-
 
     };
 
@@ -710,7 +526,7 @@ function (presencepalette, humane, l10n) {
                 presence.sendMessage(presence.getSharedInfo().id, {
                     user: presence.getUserInfo(),
                     content: {
-                        action: 'init',
+                        action: 'init_connectTheDots',
                         lines: completedLines,
                         areas: completedAreas,
                         drawn: [...drawnPoints.entries()],
@@ -718,6 +534,7 @@ function (presencepalette, humane, l10n) {
                     }
                 });
             }
+            console.log("User "+msg.user.name+" "+(msg.move == 1 ? "join": "leave"));
         });
 
     }
@@ -732,9 +549,6 @@ function (presencepalette, humane, l10n) {
             areas: completedAreas,
             hidden: [...hiddenPoints.keys()]
         }
-
-
-
         return to_save
     };
 
