@@ -71,7 +71,7 @@ class EnyoActivity(activity.Activity):
 
     def refresh(self, context):
         self.context = context
-        web_app_page = os.path.join(activity.get_bundle_path(), "index.html")
+        web_app_page = os.path.join(activity.get_bundle_path(), "connectTheNumbers.html")
         self.webview.load_uri('file://' + web_app_page+"?onsugar=1")
 
     def init_context(self, args):
@@ -111,7 +111,7 @@ class EnyoActivity(activity.Activity):
         self.enyo.connect("set_categories", self.set_categories)
 
         # Go to first page
-        web_app_page = os.path.join(activity.get_bundle_path(), "index.html")
+        web_app_page = os.path.join(activity.get_bundle_path(), "connectTheNumbers.html")
         self.webview.load_uri('file://' + web_app_page+"?onsugar=1")
 
         # Display all

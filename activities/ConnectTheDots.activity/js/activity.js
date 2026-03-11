@@ -1,6 +1,7 @@
 define(["sugar-web/activity/activity", "sugar-web/env", "sugar-web/datastore", "l10n",
-"./connectTheDots", "./paperIO", "sugar-web/graphics/presencepalette"],
-function (activity, env, datastore, l10n, connectTheDotsMode, paperIOMode, presencepalette) {
+"./connectTheDots", "./connectTheNumbers", "./paperIO", "sugar-web/graphics/presencepalette"],
+function (activity, env, datastore, l10n, connectTheDotsMode, connectTheNumbersMode,
+paperIOMode, presencepalette) {
 
     requirejs(['domReady!'], function (doc) {
 
@@ -54,6 +55,9 @@ function (activity, env, datastore, l10n, connectTheDotsMode, paperIOMode, prese
                 document.getElementById('connect-dots-button').addEventListener('click', function() {
                     window.location.href = "connectTheDots.html" + window.location.search;
                 });
+                document.getElementById('number-mode-button').addEventListener('click', function() {
+                    window.location.href = "connectTheNumbers.html" + window.location.search;
+                });
                 document.getElementById('paperio-button').addEventListener('click', function() {
                     window.location.href = "paperIO.html" + window.location.search;
                 });
@@ -64,7 +68,11 @@ function (activity, env, datastore, l10n, connectTheDotsMode, paperIOMode, prese
                         network.onDataReceived(function(msg) {
                             if (msg.content.action === 'init_connectTheDots') {
                                 window.location.href = "connectTheDots.html" + window.location.search;
-                            } else if (msg.content.action === 'init_paperIO') {
+                            }
+                            else if (msg.content.action === 'init_connectTheNumbers') {
+                                window.location.href = "connectTheNumbers.html" + window.location.search;
+                            }
+                            else if (msg.content.action === 'init_paperIO') {
                                 window.location.href = "paperIO.html" + window.location.search;
                             }
                         });
@@ -79,15 +87,20 @@ function (activity, env, datastore, l10n, connectTheDotsMode, paperIOMode, prese
                 if (currentPage.includes('connectTheDots')) {
                     activeGameMode = connectTheDotsMode;
                     temp = "connectTheDots"
-                } else if (currentPage.includes('paperIO')) {
+                }
+                else if (currentPage.includes('connectTheNumbers')){
+                    activeGameMode = connectTheNumbersMode;
+                    temp = "connectTheNumbers"
+                }
+                else if (currentPage.includes('paperIO')) {
                     activeGameMode = paperIOMode;
                     temp = "paperIO"
                 }
+
                 //console.log("We are into: ",activeGameMode," ", temp)
                 var networkButton = document.getElementById("network-button");
 
                 if (isShared) {
-                    //console.log("Joined an online game")
                     presence = activity.getPresenceObject(function(error, network) {
                         var palette = new presencepalette.PresencePalette(networkButton, network);
                         activeGameMode.init(activity, currentenv, datastore, network, globalLoadedData, false);

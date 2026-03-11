@@ -6,7 +6,7 @@ This is an animated version of "activity-icon-color.svg".  It includes the
 "activity-icon-color.svg" you should copy across the changes but keep the
 <animate> elements in this file.
 
-You also need to update the image included in the "index.html".  To do so, you
+You also need to update the image included in the "connectTheNumbers.html".  To do so, you
 need to use SVGCleaner (Complete preset) to minify the file, then base64 encode
 it and include it in the data url.
 -->
