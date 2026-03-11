@@ -1,5 +1,5 @@
-define(["sugar-web/graphics/presencepalette","humane", "l10n"],
-function (presencepalette, humane, l10n) {
+define(["sugar-web/graphics/presencepalette","humane", "l10n", "shapepalette"],
+function (presencepalette, humane, l10n, shapepalette) {
 
     var mode = {};
 
@@ -26,19 +26,34 @@ function (presencepalette, humane, l10n) {
     }
 
     // --- NEW: THE APPLE SHAPE COORDINATES ---
-    // Grid indices that form an apple when connected in order
-    const appleSequenceGrid = [
-        {c:14, r:3}, {c:16, r:2}, {c:18, r:4}, {c:17, r:7},
-        {c:15, r:9}, {c:14, r:9}, {c:13, r:9}, {c:11, r:7},
-        {c:10, r:4}, {c:12, r:2}, {c:13, r:3}, // Apple Body
-        {c:14, r:1}, {c:16, r:0} // Stem
-    ];
+    // --- SHAPE COORDINATES ---
+    const shapesGrid = {
+        apple: [
+            {c:14, r:3}, {c:16, r:2}, {c:18, r:4}, {c:17, r:7},
+            {c:15, r:9}, {c:14, r:9}, {c:13, r:9}, {c:11, r:7},
+            {c:10, r:4}, {c:12, r:2}, {c:13, r:3}, {c:14, r:1}, {c:16, r:0}
+        ],
+        house: [ // Simple house outline
+            {c:10, r:9}, {c:18, r:9}, {c:18, r:5},
+            {c:14, r:2}, {c:10, r:5}
+        ],
+        star: [
+            {c: 14, r: 2},  // 1. Top point
+            {c: 15, r: 4},  // 2. Inner top-right
+            {c: 18, r: 4},  // 3. Right point
+            {c: 16, r: 6},  // 4. Inner bottom-right
+            {c: 17, r: 9},  // 5. Bottom right point (Max row 9)
+            {c: 14, r: 7},  // 6. Inner bottom center
+            {c: 11, r: 9},  // 7. Bottom left point (Max row 9)
+            {c: 12, r: 6},  // 8. Inner bottom-left
+            {c: 10, r: 4},  // 9. Left point
+            {c: 13, r: 4}   // 10. Inner top-left
+        ]
+    };
 
-    // Convert grid indices to physical pixel locations
-    const targetSequence = appleSequenceGrid.map(pt => ({
-        x: startX + pt.c * spacingX,
-        y: startY + pt.r * spacingY
-    }));
+    let currentShape = 'apple';
+    let targetSequence = []; // Will be populated dynamically
+
 
     // Game State
     let currentStep = 0;
@@ -152,6 +167,30 @@ function (presencepalette, humane, l10n) {
         }
     }
 
+
+    function loadShape(shapeName, broadcast = false) {
+        currentShape = shapeName;
+
+        // Map the new shape's grid coordinates to actual pixels
+        targetSequence = shapesGrid[shapeName].map(pt => ({
+            x: startX + pt.c * spacingX,
+            y: startY + pt.r * spacingY
+        }));
+
+        // Reset game progress automatically when a new shape is loaded
+        resetGame(false);
+
+        // Tell the network we changed the shape
+        if (broadcast && presence) {
+            console.log("Changed Shape")
+            presence.sendMessage(presence.getSharedInfo().id, {
+                user: presence.getUserInfo(),
+                content: { action: 'change_shape', shape: shapeName }
+            });
+        }
+    }
+
+
     // 2. MAIN INIT FUNCTION
     mode.init = function(activity, currentenv, datastore, presence, loadedData, hostStatus) {
 
@@ -166,7 +205,18 @@ function (presencepalette, humane, l10n) {
         if (presence)
             mode.setupNetwork(presence,hostStatus)
 
+        // Load the default shape immediately
+        loadShape('apple')
+
         // Add listener
+        var scenePalette = new shapepalette.ShapePalette(document.getElementById("load-scene"), "Choose Shape");
+
+        // Listen for the custom event we created
+        scenePalette.addEventListener('shapeClick', function (event) {
+            // Load the new shape and broadcast the change to other players
+            loadShape(event.shape, true);
+        });
+
         canvas.addEventListener('mousedown', (e) => {
           if (hasWon) return;
           // Must click close to the CURRENT step's point to start dragging
@@ -290,15 +340,16 @@ function (presencepalette, humane, l10n) {
             if (presence.getUserInfo().networkId === msg.user.networkId) return;
 
             switch (msg.content.action) {
+                case 'change_shape':
+                    // The host (or another player) changed the shape!
+                    loadShape(msg.content.shape, false);
+                    break;
                 case 'init_connectTheNumbers':
-                    // We don't share lines, it's a race! Just start fresh.
-                    resetGame(false);
-
-                    if (presence) {
-                        presence.sendMessage(presence.getSharedInfo().id, {
-                            user: presence.getUserInfo(),
-                            content: { action: 'joined' }
-                        });
+                    if (!isHost) {
+                        // Ensure late-joiners load whatever shape the Host is currently using
+                        if (msg.content.shape) {
+                            loadShape(msg.content.shape, false);
+                        }
                     }
                     break;
                 case 'joined':
@@ -328,7 +379,7 @@ function (presencepalette, humane, l10n) {
                 // Just welcome them, no need to send our private drawing progress
                 presence.sendMessage(presence.getSharedInfo().id, {
                     user: presence.getUserInfo(),
-                    content: { action: 'init_connectTheNumbers' }
+                    content: { action: 'init_connectTheNumbers', shape: currentShape }
                 });
             }
             console.log("User "+msg.user.name+" "+(msg.move == 1 ? "join": "leave"));

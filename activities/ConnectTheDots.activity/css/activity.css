@@ -340,3 +340,7 @@ background-color:cyan
 #main-toolbar #enter-create {
 	background-image: url(../icons/tool-pencil.svg);
 }
+
+#main-toolbar #load-scene {
+	background-image: url(../icons/insert-picture.svg);
+}
