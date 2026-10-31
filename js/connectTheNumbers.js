@@ -3,7 +3,7 @@ function (presencepalette, humane, l10n, shapepalette) {
 
     var mode = {};
 
-    // 1. GLOBAL GAME VARIABLES GO HERE
+    // 0. Global game variables
     var currcolor = 'red';
 
     const canvas = document.getElementById('drawCanvas');
@@ -25,7 +25,6 @@ function (presencepalette, humane, l10n, shapepalette) {
       }
     }
 
-    // --- NEW: THE APPLE SHAPE COORDINATES ---
     // --- SHAPE COORDINATES ---
     const shapesGrid = {
         apple: [
@@ -93,7 +92,7 @@ function (presencepalette, humane, l10n, shapepalette) {
           ctx.fillText(i + 1, pt.x + 10, pt.y - 10);
       }
 
-      // --- NEW: 2.5 Fill Shape if Won ---
+      // 2.5 Fill Shape if Won
       if (hasWon && completedLines.length > 0) {
           ctx.beginPath();
 
@@ -114,7 +113,6 @@ function (presencepalette, humane, l10n, shapepalette) {
           // Reset transparency back to 100% for the rest of the drawing
           ctx.globalAlpha = 1.0;
       }
-      // ----------------------------------
 
       // 3. Draw Completed Lines
       ctx.lineWidth = 4;
@@ -191,15 +189,13 @@ function (presencepalette, humane, l10n, shapepalette) {
     }
 
 
-    // 2. MAIN INIT FUNCTION
+    //MAIN INIT FUNCTION
     mode.init = function(activity, currentenv, datastore, presence, loadedData, hostStatus) {
 
 
         var defaultLanguage = (typeof chrome != 'undefined' && chrome.app && chrome.app.runtime) ? chrome.i18n.getUILanguage() : navigator.language;
         var language = currentenv.user ? currentenv.user.language : defaultLanguage;
         l10n.init(language);
-
-        // if(loadedData), for now we dont store anything
 
         // Set up network
         if (presence)
@@ -234,8 +230,6 @@ function (presencepalette, humane, l10n, shapepalette) {
             if (!isDrawing || hasWon) return;
             currentMouse = { x: e.offsetX, y: e.offsetY };
 
-            // Notice we changed this from '< targetSequence.length - 1'
-            // to '< targetSequence.length' so it allows one extra final step
             if (currentStep < targetSequence.length) {
 
                 // Determine the next point to snap to.
@@ -246,7 +240,7 @@ function (presencepalette, humane, l10n, shapepalette) {
                 let dist = Math.hypot(nextPt.x - e.offsetX, nextPt.y - e.offsetY);
 
                 if (dist <= snapRadius) {
-                    // Success! Snap and lock the line
+                    // Success, Snap and lock the line
                     completedLines.push({
                         start: targetSequence[currentStep],
                         end: nextPt,
@@ -256,7 +250,6 @@ function (presencepalette, humane, l10n, shapepalette) {
                     currentStep++;
 
                     // Check for Win Condition
-                    // Notice this is now checking if we completed ALL steps including the loop-back
                     if (currentStep === targetSequence.length) {
                         isDrawing = false;
                         ctx.beginPath();
@@ -341,7 +334,7 @@ function (presencepalette, humane, l10n, shapepalette) {
 
             switch (msg.content.action) {
                 case 'change_shape':
-                    // The host (or another player) changed the shape!
+                    // The host (or another player) changed the shape
                     loadShape(msg.content.shape, false);
                     break;
                 case 'init_connectTheNumbers':

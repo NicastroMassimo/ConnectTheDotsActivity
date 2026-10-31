@@ -29,7 +29,7 @@ function (presencepalette, humane, l10n) {
     let currentMouse = { x: null, y: null };
 
     var drawnPoints = new Map();
-    let hiddenPoints = new Set(); // NEW: Tracks which points to stop drawing
+    let hiddenPoints = new Set(); 
 
     // Select the color logic
     var currcolor = 'red'
@@ -37,7 +37,8 @@ function (presencepalette, humane, l10n) {
     var presence = null
     var isHost = false
 
-    // Util function
+    // UTIL FUNCTIONS
+
     // Setup your canvas listeners and drawScene here
     function drawForExport(){
       canvas.width = 1200;
@@ -46,9 +47,8 @@ function (presencepalette, humane, l10n) {
 
       ctx.fillStyle = 'white'
       ctx.fillRect(0,0,canvas.width, canvas.height)
+
       // 0. Draw filled areas FIRST (so they stay behind lines)
-      // NEW: Sort areas from largest to smallest
-      // We copy the array with [...] so we don't permanently mutate the original
       let sortedAreas = [...completedAreas].sort((a, b) => b.size - a.size);
 
       for (let area of sortedAreas) {
@@ -73,7 +73,7 @@ function (presencepalette, humane, l10n) {
       }
     }
 
-    // Helper: Find the closest point to the mouse
+    // Helper to find the closest point to the mouse
     function getClosestPoint(mouseX, mouseY) {
       for (let point of points) {
         const distance = Math.hypot(point.x - mouseX, point.y - mouseY);
@@ -164,7 +164,7 @@ function (presencepalette, humane, l10n) {
             completedAreas.push({
                 path: cyclePath,
                 color: currcolor,
-                size: calculatePolygonArea(cyclePath) // NEW: Save the size of the area
+                size: calculatePolygonArea(cyclePath) 
             });
 
             // Color dots AND hide them
@@ -225,9 +225,7 @@ function (presencepalette, humane, l10n) {
       canvas.width = 1200;
       canvas.height = 600;
 
-      // 0. Draw filled areas FIRST (so they stay behind lines)
-      // NEW: Sort areas from largest to smallest
-      // We copy the array with [...] so we don't permanently mutate the original
+      // 0. Draw filled areas first (so they stay behind lines)
       let sortedAreas = [...completedAreas].sort((a, b) => b.size - a.size);
 
       for (let area of sortedAreas) {
@@ -264,16 +262,13 @@ function (presencepalette, humane, l10n) {
       }
 
       // 3. Draw the dots
-      //drawPointsScaled(mouseout)
       // Determine the active mouse position (local vs network)
-
-
       drawPointsScaled(currentMouse.x, currentMouse.y, mouseout);
 
       //  4. Draw the Username
       if (otherUserName && othermousex !== null && othermousey !== null) {
         ctx.font = "bold 14px sans-serif";
-        ctx.fillStyle = '#000000'; // You can change this to match the other user's specific color
+        ctx.fillStyle = '#000000'; 
 
         // We add +15 to X and Y so the text floats slightly below and to the right of the actual cursor
         ctx.fillText(otherUserName, othermousex + 15, othermousey + 15);
@@ -288,7 +283,7 @@ function (presencepalette, humane, l10n) {
                   action: 'draw',
                   lines: completedLines,
                   drawn: [...drawnPoints.entries()],
-                  hidden: [...hiddenPoints.keys()], // NEW: sync hidden points
+                  hidden: [...hiddenPoints.keys()], 
                   areas: completedAreas,
                   mouse: {x: currentMouse.x, y: currentMouse.y},
                   stp: startPoint
@@ -343,7 +338,6 @@ function (presencepalette, humane, l10n) {
             completedAreas = loadedData.areas
             drawnPoints = new Map()
 
-            //console.log(loadedData.drawn)
             for (var el of loadedData.drawn){
                 drawnPoints.set(el[0],el[1])
 
@@ -355,7 +349,7 @@ function (presencepalette, humane, l10n) {
 
         }
 
-        // Mouse EVENT
+        // Mouse event
         canvas.addEventListener('mousedown', (e) => {
           const closest = getClosestPoint(e.offsetX, e.offsetY);
           if (closest) {
@@ -388,9 +382,6 @@ function (presencepalette, humane, l10n) {
             }
           }
 
-          // NEW: We call drawScene unconditionally on EVERY mouse move.
-          // This ensures the canvas clears and the dots shrink back down when hovered off.
-          // drawScene() already calls drawPointsScaled inside of it!
           drawScene();
         });
 
@@ -406,8 +397,6 @@ function (presencepalette, humane, l10n) {
           isDrawing = false;
           startPoint = null;
           currentMouse = {x:null,y:null}
-          // NEW: You must pass the arguments in the exact order the function expects them.
-          // drawScene(received, othermousex, othermousey, stp, mouseout)
           drawScene(false, null, null, null, true);
         });
 
@@ -433,10 +422,8 @@ function (presencepalette, humane, l10n) {
         })
 
         document.getElementById('save-image').addEventListener('click',function saveImage() {
-            /*
-                Read canvas data as base64 string and
-                store image in datastore
-            */
+            // Read canvas data as base64 string and store image in datastore
+
             // Draw for export
             drawForExport()
 
@@ -472,8 +459,9 @@ function (presencepalette, humane, l10n) {
         // --- MULTIPLAYER LOGIC ---
 
 
-        // 1. Listen for incoming network messages
+        // 0. Listen for incoming network messages
         presence.onDataReceived(function(msg) {
+
             // Ignore our own messages
             if (presence.getUserInfo().networkId === msg.user.networkId) return;
 
@@ -520,7 +508,7 @@ function (presencepalette, humane, l10n) {
             }
         });
 
-        // 2. Host sends the 'init' state when a new player joins
+        // 1. Host sends the 'init' state when a new player joins
         presence.onSharedActivityUserChanged(function(msg) {
             if (isHost && msg.move === 1) { // move 1 means "joined"
                 presence.sendMessage(presence.getSharedInfo().id, {

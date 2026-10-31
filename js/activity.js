@@ -97,7 +97,6 @@ paperIOMode, presencepalette) {
                     temp = "paperIO"
                 }
 
-                //console.log("We are into: ",activeGameMode," ", temp)
                 var networkButton = document.getElementById("network-button");
 
                 if (isShared) {
@@ -110,7 +109,6 @@ paperIOMode, presencepalette) {
                     var palette = new presencepalette.PresencePalette(networkButton, undefined);
                     activeGameMode.init(activity, currentenv, datastore, null, globalLoadedData, true);
 
-                    // --- YOUR HOST SHARING LOGIC ---
                     palette.addEventListener('shared', function() {
                         palette.popDown();
                         console.log("Want to share");
@@ -123,7 +121,7 @@ paperIOMode, presencepalette) {
                             network.createSharedActivity('org.sugarlabs.ConnectTheDots', function(groupId) {
                                 console.log("Activity shared");
 
-                                // TELL THE GAME MODE TO TURN MULTIPLAYER ON!
+                                // Turn multiplayer on
                                 activeGameMode.setupNetwork(network, true);
                             });
                         });
@@ -134,7 +132,7 @@ paperIOMode, presencepalette) {
 
         // --- 3. GLOBAL SAVE ON STOP ---
         // Because BOTH HTML files have a button with id="stop-button", this code
-        // will naturally override/handle the stop button for whichever page is open!
+        // will naturally override/handle the stop button for whichever page is open
         document.getElementById("stop-button").addEventListener('click', function (event) {
             console.log("Stop clicked, saving...");
 

@@ -2,12 +2,12 @@ define(["sugar-web/graphics/presencepalette","humane", "l10n"],
 function (presencepalette, humane, l10n) {
     var mode = {};
 
-    // 1. GLOBAL GAME VARIABLES GO HERE
+    // Global Game Variables
     var presence = null;
     var isHost = false;
 
-    var currcolor //= 'red'; // PlayerColor
-    var trailcolor //= 'rgba(255,0,0,0.5)'; // Transparent trail
+    var currcolor 
+    var trailcolor 
     var usercolor
     const canvas = document.getElementById('drawCanvas');
     const ctx = canvas.getContext('2d');
@@ -21,6 +21,7 @@ function (presencepalette, humane, l10n) {
     const startY = 30;
 
     let points = [];
+
     // Generate grid
     for (let i = 0; i < rows; i++) {
         for (let j = 0; j < cols; j++) {
@@ -33,7 +34,7 @@ function (presencepalette, humane, l10n) {
     let completedAreas = [];
     let drawnPoints = new Map();
     let hiddenPoints = new Set();
-    let globalFloatingTexts = []; // <-- NEW: Array for floating text animations
+    let globalFloatingTexts = [];
 
     // Player Entity
     let playerCol, playerRow;
@@ -64,7 +65,7 @@ function (presencepalette, humane, l10n) {
         }
     ]
 
-    // NEW: Global rendering queues for chronological drawing
+    // Global rendering queues for chronological drawing
     let globalCompletedAreas = [];
     let globalCompletedLines = [];
 
@@ -117,6 +118,7 @@ function (presencepalette, humane, l10n) {
 
     function checkForEnclosedArea(entity) {
         if (entity.trailLines.length == 0) return; // Need at least a trail
+
         console.log("Enclosed")
         // Remove the last step so that I force the path to follow the long route
         var lastConnection = entity.trailLines.pop()
@@ -125,7 +127,7 @@ function (presencepalette, humane, l10n) {
         var endNode = lastConnection.end; // Where it just connected
 
 
-        // 1. Build the Adjacency Graph for this specific entity
+        // 0. Build the Adjacency Graph for this specific entity
         let graph = new Map();
 
         function addEdge(ptA, ptB) {
@@ -141,17 +143,16 @@ function (presencepalette, humane, l10n) {
             graph.get(keyB).add(keyA);
         }
 
-        // A. Add the entity's dynamic borders to the graph
+        // 1. Add the entity's dynamic borders to the graph
         let allBorders = getDynamicBorders();
         let myBorders = allBorders.filter(b => b.owner === entity.id);
-        // console.log('myBorders: ',myBorders," ","trailLines: ",entity.trailLines)
 
         myBorders.forEach(line => addEdge(line.start, line.end));
 
-        // B.2 Add the entity's active trail to the graph
+        // 2 Add the entity's active trail to the graph
         entity.trailLines.forEach(line => addEdge(line.start, line.end));
 
-        // 2. Find the Cycle using Breadth-First Search (BFS)
+        // 3. Find the Cycle using Breadth-First Search (BFS)
         // We want to find the shortest path along the borders from the end node back to the start node
         // to close the loop formed by the trail.
 
@@ -163,13 +164,11 @@ function (presencepalette, humane, l10n) {
         visited.add(endKey);
 
         let cyclePathKeys = null;
-        // console.log("Start and End Key: ",startKey,endKey)
-        // console.log('GRAPH: ',graph)
 
         while (queue.length > 0) {
             let path = queue.shift();
             let currentKey = path[path.length - 1];
-            // console.log(path)
+
             if (currentKey === startKey) {
                 cyclePathKeys = path; // We found the loop!
                 break;
@@ -190,19 +189,11 @@ function (presencepalette, humane, l10n) {
             }
         }
 
-
-        // Re Add the last connection
-
-        // cyclePathKeys.push(`${lastConnection.end.x},${lastConnection.end.y}`)
-
-        // console.log(cyclePathKeys)
-
-        // 3. Process the Captured Area
+        // 4. Process the Captured Area
         if (cyclePathKeys) {
             // Convert the string keys back to physical coordinates for the point-in-polygon check
             let cyclePathCoords = cyclePathKeys.map(key => {
                 let parts = key.split(',');
-                //console.log("parti: ",parts)
                 return {x:parseInt(parts[0]), y:parseInt(parts[1])}
             });
 
@@ -223,24 +214,22 @@ function (presencepalette, humane, l10n) {
                 }
             }
 
-            // --- NEW: Spawn the floating text if cells were captured ---
+            // Spawn the floating text if cells were captured
             if (capturedCount > 0) {
                 globalFloatingTexts.push({
                     x: startX + entity.col * spacingX,
                     y: startY + entity.row * spacingY - 20,
                     text: `+${capturedCount}`,
-                    color: entity.colors.fill, // <-- FIX 3: Changed from stroke to fill
+                    color: entity.colors.fill,
                     life: 4
                 });
             }
 
-            // 4. Clean up and Update
+            // 5. Clean up and Update
             entity.trailLines = []; // Clear the trail
             updatePointSafety();    // Recalculate which fenceposts/vertices are safe
 
-            // (Insert your engulfment death check here)
-            // DEATH MECHANIC 3: ENGULFMENT
-            // Check if any other entity's current head position is inside this new area
+            // Death Mechanic: Check if any other entity's current head position is inside this new area
             for (let other of entities) {
                 if (other.id !== entity.id && !other.isDead) {
                     let otherPos = getPoint(other.col, other.row);
@@ -255,8 +244,6 @@ function (presencepalette, humane, l10n) {
         }
     }
 
-
-    // --- UTILS ---
     function getPoint(c, r) {
         return { x: startX + (c * spacingX), y: startY + (r * spacingY) };
     }
@@ -274,7 +261,6 @@ function (presencepalette, humane, l10n) {
         console.log("Killed Entity: ",entity)
         entity.isDead = true;
         // Free up the hidden dots they were covering so the grid shows again
-        // TO FIX: only if the point isn't into any other area else keep it hidden
 
         entity.drawnPoints.forEach((val, key) => {
             globalHiddenPoints.delete(key);
@@ -283,7 +269,7 @@ function (presencepalette, humane, l10n) {
         //Remove their areas from the global Areas Array
         for (let c = 0; c < cols - 1; c++) {
             for (let r = 0; r < rows - 1; r++) {
-                // console.log("cellMatrix ",cellOwnership)
+   
                 let ownerId = cellOwnership[c][r];
                 if (entity.id == ownerId)
                     cellOwnership[c][r] = null
@@ -309,15 +295,14 @@ function (presencepalette, humane, l10n) {
         cellOwnership[entity.col][entity.row] = entity.id
 
         checkForEnclosedArea(entity)//, p1, p4);
-        //entity.completedLines.push({start: p4, end: p1});
+
         let allBorders = getDynamicBorders();
         let myBorders = allBorders.filter(b => b.owner === entity.id);
-        //console.log("MY BORDERS: ",myBorders)
+        
         var p1 = myBorders[0].end
         var p2 = myBorders[0].start
         var p3 = myBorders[1].end
         var p4 = myBorders[2].end
-        //console.log("MY POINTS: ",[p1, p2, p3, p4])
 
         entity.drawnPoints.set(`${p1.x},${p1.y}`,true)
         entity.drawnPoints.set(`${p2.x},${p2.y}`,true)
@@ -343,7 +328,6 @@ function (presencepalette, humane, l10n) {
                     let ent = entities.find(e => e.id === ownerId);
                     if (ent) {
                         // Mark all 4 fence posts (vertices) of this yard as safe
-                        // USE GET POINT
                         let corners = [
                             [c,r], [c+1,r],
                             [c,r+1], [c+1,r+1]
@@ -403,20 +387,21 @@ function (presencepalette, humane, l10n) {
         gameLoop = setInterval(updateTick, 180 * 3);
         drawScene();
     }
+
     // -- AI LOGIC --
     // Checks if a proposed move will kill the entity (walls or own trail)
     function isMoveSafe(ent, testDx, testDy) {
         let nCol = ent.col + testDx;
         let nRow = ent.row + testDy;
 
-        // 1. Check Wall collisions
+        // 0. Check Wall collisions
         if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows) return false;
 
-        // 2. Prevent instant 180-degree suicide
+        // 1. Prevent instant 180-degree suicide
         if (testDx !== 0 && ent.dx === -testDx) return false;
         if (testDy !== 0 && ent.dy === -testDy) return false;
 
-        // 3. Check Own Trail collisions
+        // 2. Check Own Trail collisions
         let nPt = getPoint(nCol, nRow);
         let hittingSelf = ent.trailLines.some(line =>
             (line.end.x === nPt.x && line.end.y === nPt.y) ||
@@ -464,7 +449,7 @@ function (presencepalette, humane, l10n) {
         let closestTrailPt = null;
         let minDist = Infinity;
 
-        // 1. Scan for Player Trail (Radius 2)
+        // 0. Scan for Player Trail (Radius 2)
         if (player && !player.isDead) {
             let trailPts = new Set();
             player.trailLines.forEach(line => {
@@ -487,7 +472,7 @@ function (presencepalette, humane, l10n) {
             });
         }
 
-        // 2. STATE LOGIC
+        // 1. STATE LOGIC
         if (closestTrailPt) {
             // --- HUNT STATE ---
             enemy.state = 'HUNT';
@@ -527,11 +512,11 @@ function (presencepalette, humane, l10n) {
     }
     function updateTick() {
 
-        // --- FIX 1: Animate texts unconditionally in the tick loop ---
         globalFloatingTexts.forEach(ft => {
             ft.y -= 5;    // Move up
             ft.life -= 1; // Reduce lifespan
         });
+
         // Keep only texts that are still alive
         globalFloatingTexts = globalFloatingTexts.filter(ft => ft.life > 0);
 
@@ -614,19 +599,10 @@ function (presencepalette, humane, l10n) {
                 let cell_start = getPointReverse(st.x,st.y)
                 let cell_end = getPointReverse(end.x,end.y)
 
-                console.log(cell_start, cell_end)
                 // If I'm going over a cell that I don't own then traw the trail
                 // The trail wont be visible it is needed to that the checkForEnclosedArea starts its search
-                // DA SISTEMARE DEVI FARE CHE VEDANO LA CELL OWNERSHIP ANCHE ALLA LORO SX NON SOLO DX
                 let check_start = cell_start.c < (cols ) && cell_start.r < (rows ) && cellOwnership[cell_start.c - 1][cell_start.r - 1]!=ent.id
                 let check_end = cell_end.c < (cols ) && cell_end.r < (rows ) && cellOwnership[cell_end.c - 1][cell_end.r - 1]!=ent.id
-
-                // console.log("check_end: ",check_end)
-
-                // console.log("cella_start: ",cellOwnership[cell_start.c - 1][cell_start.r - 1])
-                // console.log("cella_end: ",cellOwnership[cell_end.c - 1][cell_end.r - 1])
-
-                // console.log("check_start: ",check_start)
 
                 if ( (check_start || check_end)  && (cell_start.c < cols && cell_end.c < cols) )
                 {
@@ -640,27 +616,22 @@ function (presencepalette, humane, l10n) {
                 else if (cell_start.r == rows && cell_start.r == rows &&
                     (cellOwnership[cell_end.c - 1][cell_end.r - 2]!=ent.id || cellOwnership[cell_start.c - 1][cell_end.r - 2])){
                     console.log("DOWN")
-                    // DA SISTEMARE PERCHè non va
                     ent.trailLines.push(newTrail)
                 }
 
-                checkForEnclosedArea(ent)//, ent.currentPt, ent.nextPt);
-                //globalTrailLines.push(newTrail);
-                // console.log("JUMPING")
+                checkForEnclosedArea(ent)
             }
             else if (!isCurrentSafe && !isNextSafe) {
                 // In the Wild
                 ent.trailLines.push(newTrail);
                 globalTrailLines.push(newTrail);
-                // console.log("WILD")
             }
             else if (!isCurrentSafe && isNextSafe) {
-                // console.log("RETURNING")
                 // Reconnecting to Base
                 let finalLine = { ownerId: ent.id, start: ent.currentPt, end: ent.nextPt, color: ent.colors.stroke };
                 ent.trailLines.push(finalLine);
 
-                checkForEnclosedArea(ent)//, ent.currentPt, ent.nextPt);
+                checkForEnclosedArea(ent)
 
                 // Clear active trail locally AND globally
                 ent.trailLines = [];
@@ -674,7 +645,7 @@ function (presencepalette, humane, l10n) {
 
         drawScene();
 
-        // --- NEW: HOST BROADCASTS THE TICK ---
+        // Host broadcasts the tick
         if (presence && isHost) {
             let id_points = {};
             for (let ent of entities) {
@@ -757,7 +728,7 @@ function (presencepalette, humane, l10n) {
             ctx.fillRect(pX - 10, pY - 10, 20, 20);
         });
 
-        // --- 1. DRAW PLAYER NAMES ---
+        // 5. draw player names
         for (let ent of entities) {
         if (ent.isDead) continue; // <-- FIX 2: Skip drawing dead players' names
 
@@ -769,7 +740,7 @@ function (presencepalette, humane, l10n) {
         ctx.fillText(ent.name || "Player", px, py - 20);
         }
 
-        // --- 2. DRAW FLOATING TEXTS ---
+        // 6. draw floating text
         for (let ft of globalFloatingTexts) {
             ctx.globalAlpha = ft.life / 4;
             ctx.fillStyle = ft.color; // (This now correctly pulls the fill color from above)
@@ -779,8 +750,7 @@ function (presencepalette, humane, l10n) {
         }
         ctx.globalAlpha = 1.0;
 
-        // --- 3. CALCULATE & DRAW LEADERBOARD ---
-        // --- 3. CALCULATE & UPDATE HTML LEADERBOARD ---
+        // -7. Calculate and update the leaderboard
         let aliveEntities = entities.filter(e => !e.isDead);
 
         let scores = {};
@@ -815,7 +785,7 @@ function (presencepalette, humane, l10n) {
         }
     }
 
-    // 2. MAIN INIT FUNCTION
+    // MAIN INIT FUNCTION
     mode.init = function(activity, currentenv, datastore, presence, loadedData, hostStatus) {
 
         // SET COLOR and LANGUAGE
@@ -828,7 +798,7 @@ function (presencepalette, humane, l10n) {
         // Force the new colors
         entities[0].colors = { fill: usercolor, stroke: currcolor, trail: trailcolor };
 
-        // --- NEW: Add the user's name to their entity ---
+        // Add the user's name to their entity ---
         entities[0].name = currentenv.user.name || "Player";
 
         // Set current language to Sugarizer
@@ -837,26 +807,25 @@ function (presencepalette, humane, l10n) {
         var language = currentenv.user ? currentenv.user.language : defaultLanguage;
         l10n.init(language);
 
-        // WE dont need to load anything from memory
-        // if (loadedData)
-
         //  --- INPUT: MOUSE STEERING (Only controls the Player) ---
         var pId  = 'Player'// Id of the player we are controlling, default is Player
-        // 1. Create a variable to remember the last time the code ran
+
+        // 0. Create a variable to remember the last time the code ran
         let lastMouseUpdate = 0;
-        // 2. Set how many milliseconds to wait between updates (e.g., 50ms is roughly 20 times a second)
+
+        // 1. Set how many milliseconds to wait between updates (e.g., 50ms is roughly 20 times a second)
         const MOUSE_THROTTLE_MS = 0;
 
         if (hostStatus)
             canvas.addEventListener('mousemove', (e) => {
 
-                // 3. Get the current time
+                // 2. Get the current time
                 let now = Date.now();
 
-                // 4. If enough time hasn't passed since the last update, STOP here and do nothing.
+                // 3. If enough time hasn't passed since the last update, STOP here and do nothing.
                 if (now - lastMouseUpdate < MOUSE_THROTTLE_MS) return;
 
-                // 5. If we made it past the check, update the timestamp so the next event is forced to wait
+                // 4. If we made it past the check, update the timestamp so the next event is forced to wait
                 lastMouseUpdate = now;
 
                 console.log('IDPLAYER: ',pId)
@@ -876,7 +845,7 @@ function (presencepalette, humane, l10n) {
                     else if (diffY < 0 && player.dy !== 1) { player.nextDx = 0; player.nextDy = -1; }
                 }
 
-                // Send the new dx , dy
+                // 5. Send the new dx , dy
                 if (presence)
                     presence.sendMessage(presence.getSharedInfo().id, {
                         user: presence.getUserInfo(),
@@ -890,12 +859,11 @@ function (presencepalette, humane, l10n) {
         // Manipulate the DOM only when it is ready.
         requirejs(['domReady!'], function (doc) {
             if (!presence){
-                //console.log("PRESENCE DOM")
                 initGame()
             }
             else
             {
-                // If we JOINED a game, the network is already ready, so setup immediately
+                // If we joined a game, the network is already ready, so setup immediately
                 console.log("JOINED")
                 mode.setupNetwork(presence, hostStatus);
             }
@@ -907,10 +875,8 @@ function (presencepalette, humane, l10n) {
         presence = networkObj;
         isHost = hostStatus;
 
-        // Remove the Enemy (ADDED)
-        //console.log("Nemico, ",entities.filter(e => e.id == "Enemy"))
+        // Remove the Enemy 
         if(hostStatus){
-            //console.log("Init KILL")
             killEntity(entities.filter(e => e.id == "Enemy")[0])
         }
 
@@ -922,18 +888,17 @@ function (presencepalette, humane, l10n) {
             }
             switch (msg.content.action) {
                 case 'init_paperIO':
-                    console.log("YOUR WELCOME")
 
-                    // GIVE THE STATUS OF THE BOARD TO THE PLAYER
+                    // Give the status of the board to the player
                     cellOwnership = JSON.parse(msg.content.cellOwnership)
 
-                    // GIVE THE ENTITIES ARRAY TO THE PLAYER
+                    // Give the entity array to the player
                     let temp = JSON.parse(msg.content.entities)
                     let curr = entities[0]
                     entities = [...temp]
                     entities.forEach(e => e.drawnPoints = new Map())
 
-                    // SET THE POINT OF EACH
+                    // Set the point of each 
                     let entities_points = JSON.parse(msg.content.id_points)
                     for (var k of Object.keys(entities_points))
                         entities_points[k] = JSON.parse(entities_points[k])
@@ -945,10 +910,10 @@ function (presencepalette, humane, l10n) {
                         }
                     })
 
-                    // ADD THE PLAYER ENTITY
+                    // Add the player entity
                     entities.push(curr)
 
-                    // GIVE ALL THE TRAIL LINES AND HIDDEN POINTS
+                    // Give all the trail lines and hidden point
                     globalTrailLines = JSON.parse(msg.content.globalTrailLines)
                     globalHiddenPoints = new Set(JSON.parse(msg.content.globalHiddenPoints || "[]"));
 
@@ -958,7 +923,7 @@ function (presencepalette, humane, l10n) {
                     console.log("IDPLAYERINIT: ",pId)
                     var pId = curr.id
 
-                    // CREATE A ZONE WHERE THE PLAYER SHOULD SPAWN
+                    // Create a zone where the player should spawn
                     let possible_position = [ [cols - 2, rows - 2 ]]
 
                     for (var pos of possible_position){
@@ -979,21 +944,21 @@ function (presencepalette, humane, l10n) {
                         }
                     });
 
-                    // 1. Create a variable to remember the last time the code ran
+                    // 0. Create a variable to remember the last time the code ran
                     let lastMouseUpdate = 0;
-                    // 2. Set how many milliseconds to wait between updates (e.g., 50ms is roughly 20 times a second)
+
+                    // 1. Set how many milliseconds to wait between updates (e.g., 50ms is roughly 20 times a second)
                     const MOUSE_THROTTLE_MS = 0;
 
-                    // Re ADD EventListener (Horrible)
                     canvas.addEventListener('mousemove', (e) => {
 
-                        // 3. Get the current time
+                        // 2. Get the current time
                         let now = Date.now();
 
-                        // 4. If enough time hasn't passed since the last update, STOP here and do nothing.
+                        // 3. If enough time hasn't passed since the last update, STOP here and do nothing.
                         if (now - lastMouseUpdate < MOUSE_THROTTLE_MS) return;
 
-                        // 5. If we made it past the check, update the timestamp so the next event is forced to wait
+                        // 4. If we made it past the check, update the timestamp so the next event is forced to wait
                         lastMouseUpdate = now;
 
                         console.log('IDPLAYER: ',pId)
@@ -1013,7 +978,7 @@ function (presencepalette, humane, l10n) {
                             else if (diffY < 0 && player.dy !== 1) { player.nextDx = 0; player.nextDy = -1; }
                         }
 
-                        // Send the new dx , dy
+                        // 5. Send the new dx , dy
                         if (presence)
                             presence.sendMessage(presence.getSharedInfo().id, {
                                 user: presence.getUserInfo(),
@@ -1024,13 +989,13 @@ function (presencepalette, humane, l10n) {
                             });
                     });
 
-                    // MODIFIED: Do NOT start a setInterval here.
                     // The client just clears any rogue loops and draws the first frame.
                     if (gameLoop) clearInterval(gameLoop);
+
                     drawScene();
                     break;
                 case 'move':
-                    // MODIFIED: Only the Host processes movement intents now.
+                    // Only the Host processes movement intents now.
                     if (!isHost) return;
 
                     let id_dir = JSON.parse(msg.content.id_direction)
@@ -1051,7 +1016,7 @@ function (presencepalette, humane, l10n) {
                     cellOwnership = JSON.parse(msg.content.cellOwnership)
                     break;
 
-                // --- NEW: CLIENT RECEIVES THE TRUTH FROM THE HOST EVERY TICK ---
+                // Client recieves the truth from the host every tick
                 case 'tick':
                     if (isHost) return; // Host ignores its own broadcasts
 

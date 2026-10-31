@@ -231,4 +231,8 @@ define([...], function(...){
 ```
 
 # Video demo
-[Video](video/GSOC20260001-3720.mp4)
+
+https://github.com/user-attachments/assets/13e34498-d6e4-4007-b5d7-bf55126d4038
+
+You can find the video inside the video folder.
+In the video you'll see me playing the 3 gamemodes, together or against another player of color yellow.
