@@ -231,4 +231,4 @@ define([...], function(...){
 ```
 
 # Video demo
-<video src="video/GSOC20260001-3720.mp4" controls width="100%"></video>
+[Video](video/GSOC20260001-3720.mp4)
