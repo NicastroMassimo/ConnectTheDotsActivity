@@ -1,6 +1,0 @@
-[Activity]
-name = Flip
-activity_version = 1
-bundle_id = com.homegrownapps.flip
-exec = sugar-activity-web
-icon = activity-icon

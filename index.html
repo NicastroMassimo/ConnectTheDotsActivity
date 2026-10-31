@@ -1,73 +1,53 @@
 <!DOCTYPE html>
 <html>
 
-  <head>
-	<meta charset="utf-8" />
-	<title>Sugarizer</title>
+<head>
+<meta charset="utf-8" />
+<title>ConnectTheDots Activity</title>
+<meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, viewport-fit=cover"/>
+<link rel="stylesheet" media="not screen and (device-width: 1200px) and (device-height: 900px)"
+	href="lib/sugar-web/graphics/css/sugar-96dpi.css">
+<link rel="stylesheet" media="screen and (device-width: 1200px) and (device-height: 900px)"
+	href="lib/sugar-web/graphics/css/sugar-200dpi.css">
 
-	<link href="css/xocolor.css" rel="stylesheet" type="text/css" />
-	<meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, viewport-fit=cover"/>
+<link rel="stylesheet" href="css/activity.css">
 
-	<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+<link rel="stylesheet" href="css/introjs.css">
+<script src="lib/intro.js"></script>
 
-	<script src="lib/vue.global.prod.js"></script>
-	<script src="lib/axios.min.js"></script>
-    <script src="lib/intro.js"></script>
-	<!-- Load other libs before require.js -->
-	<script src="lib/require.js"></script>
-	<script type="text/javascript" src="cordova.js"></script>
+<script data-main="js/loader" src="lib/require.js"></script>
 
-	<!-- Sugarizer classes -->
-	<link href="css/styles.css" rel="stylesheet" type="text/css" />
-	<link href="css/libnotify.css" rel="stylesheet" type="text/css" />
-    <link href="css/introjs.css" rel="stylesheet" type="text/css" />
-    <link href="css/custom-introjs.css" rel="stylesheet" type="text/css" />
-	<script>if (window.module) module = window.module;</script>
-  </head>
+<script type="text/javascript" src="../../cordova.js"></script>
+</head>
 
-  <body id="body">
-	<div id="app">
-		<div class="sugarizer-canvas" v-if="isFirstScreen">
-			<firstscreen @showmainscreen="setIsFirstScreen"/>
-		</div>
-		<div v-else-if="!isFirstScreen && isFirstScreen !== null">
-			<mainscreen ref="mainscreen" />
-		</div>
-	</div>
+<body>
 
-	<!-- Shutdown Image for Desktop -->
-	<div id="shutdown-image"></div>
+    <div id="main-toolbar" class="toolbar">
+        <button class="toolbutton" id="activity-button" title="My Activity"></button>
 
-	<!-- Icons for QR code scanning -->
-	<button class="toolbutton first-qrswitch-button" id="qrswitchbutton"></button>
-	<button class="toolbutton first-qrclose-button" id="qrclosebutton"></button>
 
-	<span class="hidden-emoji">Sugarizer</span>
-	<script src="js/sugarizer.js"></script>
-	<script src="js/components/icon.js"></script>
-	<script src="js/components/iconbutton.js"></script>
-	<script src="js/components/password.js"></script>
-	<script src="js/components/searchfield.js"></script>
-	<script src="js/components/popup.js"></script>
-	<script src="js/components/prompt.js"></script>
-	<script src="js/components/selectbox.js"></script>
-	<script src="js/components/filterbox.js"></script>
-	<script src="js/components/dialog.js"></script>
-	<script src="js/screens/loginscreen.js"></script>
-	<script src="js/screens/firstscreen.js"></script>
-	<script src="js/screens/settings-aboutme.js"></script>
-	<script src="js/screens/settings-aboutcomputer.js"></script>
-	<script src="js/screens/settings-aboutmyserver.js"></script>
-	<script src="js/screens/settings-mysecurity.js"></script>
-	<script src="js/screens/settings-myprivacy.js"></script>
-	<script src="js/screens/settings-languagebox.js"></script>
-	<script src="js/screens/settings.js"></script>
-	<script src="js/screens/journal.js"></script>
-	<script src="js/screens/neighborhood.js"></script>
-	<script src="js/screens/homescreen.js"></script>
-	<script src="js/screens/listview.js"></script>
-	<script src="js/screens/mainscreen.js"></script>
-	<script src="js/app.js"></script>
-  </body>
+        <!-- Add more buttons here -->
+        <button class="toolbutton" id="connect-dots-button" title="Enter in connect the dots"></button>
+        <button class="toolbutton" id="number-mode-button" title="Enter in number mode"></button>
+        <button class="toolbutton" id="paperio-button" title="Enter in Conquer mode"></button>
+
+
+
+
+        <!-- Buttons with class="pull-right" will be right aligned -->
+        <button class="toolbutton pull-right" id="stop-button" title="Stop"></button>
+        <button class="toolbutton pull-right" id="help-button" title="Tutorial"></button>
+        <!-- <button class="toolbutton pull-right" id="network-button" title="Network"></button> -->
+
+    </div>
+
+
+
+    <!-- The content of your activity goes inside the canvas -->
+    <div id="canvas">
+        <h1 id="Joined" ></h1>
+        <canvas id="drawCanvas" width="800" height="500"></canvas>
+    </div>
+</body>
+
 </html>
-

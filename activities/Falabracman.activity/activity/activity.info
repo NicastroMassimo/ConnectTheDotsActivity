@@ -1,6 +1,0 @@
-[Activity]
-name =  Falabracman
-activity_version = 1
-bundle_id = org.sugarlabs.Falabracman
-exec = sugar-activity-web
-icon = activity-icon

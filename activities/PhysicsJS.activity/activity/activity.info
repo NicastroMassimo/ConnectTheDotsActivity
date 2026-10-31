@@ -1,6 +1,0 @@
-[Activity]
-name = Physics JS
-activity_version = 1
-bundle_id = org.olpg-france.physicsjs
-exec = sugar-activity-web
-icon = activity-icon
