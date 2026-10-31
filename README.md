@@ -231,4 +231,6 @@ define([...], function(...){
 ```
 
 # Video demo
-[Video](video/GSOC20260001-3720.mp4)
+https://github.com/user-attachments/assets/7e9c4647-3275-4a2b-a001-c6ef493f109c
+You can find it inside the video folder.
+
