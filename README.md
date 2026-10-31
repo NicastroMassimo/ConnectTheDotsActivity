@@ -230,5 +230,5 @@ define([...], function(...){
 })
 ```
 
-# Link to the video showing the demo
-[Link](https://drive.google.com/file/d/1r-LzG2zZFRgFtPOzE0Y0HTJMIT0_mc8C/view?usp=sharing)
+# Video demo
+<video src="video/GSOC20260001-3720.mp4" controls width="100%"></video>
